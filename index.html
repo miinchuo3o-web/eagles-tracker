@@ -10,230 +10,367 @@
 <title>🦅 한화 이글스 직관 기록</title>
 <style>
   :root {
-    --orange: #f97316; --orange-light: #fff7ed; --orange-mid: #fed7aa;
-    --green: #0F6E56; --green-light: #E1F5EE;
-    --red: #993C1D; --red-light: #FAECE7;
-    --gray: #5F5E5A; --gray-light: #F1EFE8;
-    --bg: #f8f7f4; --card: #ffffff;
-    --text: #1a1a1a; --text-sub: #6b7280; --text-hint: #9ca3af;
-    --border: rgba(0,0,0,0.1); --radius: 12px; --radius-sm: 8px;
+    --orange:#f97316;--orange-light:#fff7ed;--orange-mid:#fed7aa;
+    --green:#0F6E56;--green-light:#E1F5EE;
+    --red:#993C1D;--red-light:#FAECE7;
+    --gray:#5F5E5A;--gray-light:#F1EFE8;
+    --bg:#f8f7f4;--card:#ffffff;
+    --text:#1a1a1a;--text-sub:#6b7280;--text-hint:#9ca3af;
+    --border:rgba(0,0,0,0.1);--radius:12px;--radius-sm:8px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100dvh; }
-  .header { background: var(--orange); color: white; padding: 16px 20px 14px; position: sticky; top: 0; z-index: 10; }
-  .header h1 { font-size: 17px; font-weight: 600; }
-  .header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
-  .content { padding: 16px; max-width: 480px; margin: 0 auto; }
-  .card { background: var(--card); border-radius: var(--radius); border: 0.5px solid var(--border); padding: 16px; margin-bottom: 12px; }
-  .tab-row { display: flex; gap: 6px; margin-bottom: 14px; }
-  .tab-btn { flex: 1; padding: 8px; font-size: 13px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: white; color: var(--text-sub); cursor: pointer; font-weight: 500; }
-  .tab-btn.active { background: var(--orange); color: white; border-color: var(--orange); }
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
-  .label { font-size: 11px; color: var(--text-sub); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
-  input[type="date"], input[type="number"], input[type="text"], select {
-    width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid var(--border);
-    border-radius: var(--radius-sm); background: white; color: var(--text);
-    outline: none; -webkit-appearance: none; appearance: none;
-  }
-  input:focus, select:focus { border-color: var(--orange); }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .fgroup { display: flex; flex-direction: column; gap: 4px; }
-  .date-search-row { display: flex; gap: 8px; align-items: flex-end; }
-  .date-search-row input { flex: 1; }
-  .btn-search { padding: 10px 14px; font-size: 13px; font-weight: 600; border-radius: var(--radius-sm); border: none; background: var(--orange); color: white; cursor: pointer; white-space: nowrap; }
-  .btn-search:disabled { opacity: 0.4; cursor: not-allowed; }
-  .result-box { background: var(--bg); border-radius: var(--radius-sm); padding: 14px; margin: 12px 0; min-height: 64px; display: flex; align-items: center; justify-content: center; text-align: center; }
-  .result-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; width: 100%; }
-  .rg-item { text-align: center; }
-  .rg-label { font-size: 11px; color: var(--text-hint); margin-bottom: 3px; }
-  .rg-val { font-size: 16px; font-weight: 600; color: var(--text); }
-  .edit-section { background: var(--orange-light); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; border: 1px solid var(--orange-mid); }
-  .extra-section { background: var(--bg); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; }
-  .result-toggle { display: flex; gap: 6px; }
-  .result-toggle button { flex: 1; padding: 9px; font-size: 14px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background: white; color: var(--text-sub); cursor: pointer; }
-  .result-toggle button.sel-win { background: var(--green-light); color: var(--green); border-color: #5DCAA5; }
-  .result-toggle button.sel-lose { background: var(--red-light); color: var(--red); border-color: #F0997B; }
-  .result-toggle button.sel-draw { background: var(--gray-light); color: var(--gray); border-color: #B4B2A9; }
-  .btn-add { width: 100%; padding: 12px; font-size: 15px; font-weight: 600; border-radius: var(--radius-sm); border: none; background: var(--orange); color: white; cursor: pointer; margin-top: 4px; }
-  .btn-add:disabled { opacity: 0.35; cursor: not-allowed; }
-  .stat-tabs { display: flex; gap: 5px; margin-bottom: 12px; }
-  .stat-tab { flex: 1; padding: 7px 4px; font-size: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: white; color: var(--text-sub); cursor: pointer; text-align: center; font-weight: 500; }
-  .stat-tab.active { background: var(--orange); color: white; border-color: var(--orange); }
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
-  .stat-box { background: var(--bg); border-radius: var(--radius-sm); padding: 10px 6px; text-align: center; }
-  .stat-box .sv { font-size: 22px; font-weight: 700; color: var(--text); }
-  .stat-box .sl { font-size: 10px; color: var(--text-sub); margin-top: 2px; }
-  .stat-box.win .sv { color: var(--green); }
-  .stat-box.lose .sv { color: var(--red); }
-  .stat-box.rate .sv { color: var(--orange); }
-  .money-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-  .money-box { background: var(--bg); border-radius: var(--radius-sm); padding: 10px 6px; text-align: center; }
-  .money-box .mv { font-size: 15px; font-weight: 700; color: var(--text); }
-  .money-box .ml { font-size: 10px; color: var(--text-sub); margin-top: 2px; }
-  .money-box.win .mv { color: var(--green); }
-  .money-box.lose .mv { color: var(--red); }
-  .section-title { font-size: 13px; font-weight: 600; color: var(--text-sub); margin-bottom: 10px; }
-  .records-list { display: flex; flex-direction: column; gap: 6px; }
-  .record-item { background: var(--bg); border-radius: var(--radius-sm); padding: 10px 12px; }
-  .rec-row1 { display: flex; align-items: center; gap: 8px; }
-  .r-date { font-size: 11px; color: var(--text-sub); min-width: 72px; }
-  .r-opp { flex: 1; font-size: 14px; font-weight: 600; }
-  .r-ha { font-size: 11px; color: var(--text-hint); padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; }
-  .r-score { font-size: 12px; color: var(--text-sub); min-width: 36px; text-align: center; }
-  .r-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 99px; }
-  .r-badge.win { background: var(--green-light); color: var(--green); }
-  .r-badge.lose { background: var(--red-light); color: var(--red); }
-  .r-badge.draw { background: var(--gray-light); color: var(--gray); }
-  .r-del { color: var(--text-hint); font-size: 18px; cursor: pointer; padding: 0 2px; }
-  .rec-row2 { display: flex; gap: 10px; margin-top: 5px; font-size: 11px; color: var(--text-hint); }
-  .empty { text-align: center; color: var(--text-hint); font-size: 13px; padding: 24px; line-height: 1.8; }
-  .msg-ok { color: var(--green); font-size: 13px; }
-  .msg-err { color: var(--red); font-size: 13px; }
-  .msg-loading { color: var(--text-sub); font-size: 13px; }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
+  .header{background:var(--orange);color:white;padding:16px 20px 14px;position:sticky;top:0;z-index:10;}
+  .header h1{font-size:17px;font-weight:600;}
+  .header p{font-size:12px;opacity:.85;margin-top:2px;}
+  .header-right{position:absolute;right:16px;top:50%;transform:translateY(-50%);}
+  .btn-logout{background:rgba(255,255,255,.2);border:none;color:white;padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;}
+  .content{padding:16px;max-width:480px;margin:0 auto;}
+
+  /* 로그인/회원가입 화면 */
+  .auth-wrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .auth-card{background:white;border-radius:var(--radius);padding:2rem;width:100%;max-width:360px;border:0.5px solid var(--border);}
+  .auth-logo{text-align:center;font-size:40px;margin-bottom:8px;}
+  .auth-title{text-align:center;font-size:20px;font-weight:700;margin-bottom:4px;}
+  .auth-sub{text-align:center;font-size:13px;color:var(--text-sub);margin-bottom:24px;}
+  .auth-tabs{display:flex;gap:6px;margin-bottom:20px;}
+  .auth-tab{flex:1;padding:8px;font-size:14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:white;color:var(--text-sub);cursor:pointer;font-weight:500;}
+  .auth-tab.active{background:var(--orange);color:white;border-color:var(--orange);}
+  .auth-field{margin-bottom:12px;}
+  .auth-field label{display:block;font-size:12px;color:var(--text-sub);margin-bottom:4px;font-weight:500;}
+  .auth-field input{width:100%;padding:12px;font-size:15px;border:1px solid var(--border);border-radius:var(--radius-sm);outline:none;}
+  .auth-field input:focus{border-color:var(--orange);}
+  .btn-auth{width:100%;padding:13px;font-size:15px;font-weight:700;border-radius:var(--radius-sm);border:none;background:var(--orange);color:white;cursor:pointer;margin-top:4px;}
+  .btn-auth:active{transform:scale(.98);}
+  .auth-err{color:var(--red);font-size:13px;text-align:center;margin-top:8px;min-height:20px;}
+
+  /* 메인 */
+  .card{background:var(--card);border-radius:var(--radius);border:0.5px solid var(--border);padding:16px;margin-bottom:12px;}
+  .tab-row{display:flex;gap:6px;margin-bottom:14px;}
+  .tab-btn{flex:1;padding:8px;font-size:13px;border-radius:var(--radius-sm);border:1px solid var(--border);background:white;color:var(--text-sub);cursor:pointer;font-weight:500;}
+  .tab-btn.active{background:var(--orange);color:white;border-color:var(--orange);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+  .label{font-size:11px;color:var(--text-sub);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+  input[type="date"],input[type="number"],input[type="text"],select{width:100%;padding:10px 12px;font-size:14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:white;color:var(--text);outline:none;-webkit-appearance:none;appearance:none;}
+  input:focus,select:focus{border-color:var(--orange);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;}
+  .fgroup{display:flex;flex-direction:column;gap:4px;}
+  .date-search-row{display:flex;gap:8px;align-items:flex-end;}
+  .date-search-row input{flex:1;}
+  .btn-search{padding:10px 14px;font-size:13px;font-weight:600;border-radius:var(--radius-sm);border:none;background:var(--orange);color:white;cursor:pointer;white-space:nowrap;}
+  .btn-search:disabled{opacity:.4;cursor:not-allowed;}
+  .result-box{background:var(--bg);border-radius:var(--radius-sm);padding:14px;margin:12px 0;min-height:64px;display:flex;align-items:center;justify-content:center;text-align:center;}
+  .result-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;width:100%;}
+  .rg-item{text-align:center;}
+  .rg-label{font-size:11px;color:var(--text-hint);margin-bottom:3px;}
+  .rg-val{font-size:16px;font-weight:600;color:var(--text);}
+  .edit-section{background:var(--orange-light);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;border:1px solid var(--orange-mid);}
+  .extra-section{background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;}
+  .result-toggle{display:flex;gap:6px;}
+  .result-toggle button{flex:1;padding:9px;font-size:14px;font-weight:600;border-radius:var(--radius-sm);border:1px solid var(--border);background:white;color:var(--text-sub);cursor:pointer;}
+  .result-toggle button.sel-win{background:var(--green-light);color:var(--green);border-color:#5DCAA5;}
+  .result-toggle button.sel-lose{background:var(--red-light);color:var(--red);border-color:#F0997B;}
+  .result-toggle button.sel-draw{background:var(--gray-light);color:var(--gray);border-color:#B4B2A9;}
+  .btn-add{width:100%;padding:12px;font-size:15px;font-weight:600;border-radius:var(--radius-sm);border:none;background:var(--orange);color:white;cursor:pointer;margin-top:4px;}
+  .btn-add:disabled{opacity:.35;cursor:not-allowed;}
+  .stat-tabs{display:flex;gap:5px;margin-bottom:12px;}
+  .stat-tab{flex:1;padding:7px 4px;font-size:12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:white;color:var(--text-sub);cursor:pointer;text-align:center;font-weight:500;}
+  .stat-tab.active{background:var(--orange);color:white;border-color:var(--orange);}
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+  .stat-box{background:var(--bg);border-radius:var(--radius-sm);padding:10px 6px;text-align:center;}
+  .stat-box .sv{font-size:22px;font-weight:700;color:var(--text);}
+  .stat-box .sl{font-size:10px;color:var(--text-sub);margin-top:2px;}
+  .stat-box.win .sv{color:var(--green);}
+  .stat-box.lose .sv{color:var(--red);}
+  .stat-box.rate .sv{color:var(--orange);}
+  .money-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;}
+  .money-box{background:var(--bg);border-radius:var(--radius-sm);padding:10px 6px;text-align:center;}
+  .money-box .mv{font-size:15px;font-weight:700;color:var(--text);}
+  .money-box .ml{font-size:10px;color:var(--text-sub);margin-top:2px;}
+  .money-box.win .mv{color:var(--green);}
+  .money-box.lose .mv{color:var(--red);}
+  .section-title{font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:10px;}
+  .records-list{display:flex;flex-direction:column;gap:6px;}
+  .record-item{background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px;}
+  .rec-row1{display:flex;align-items:center;gap:8px;}
+  .r-date{font-size:11px;color:var(--text-sub);min-width:72px;}
+  .r-opp{flex:1;font-size:14px;font-weight:600;}
+  .r-ha{font-size:11px;color:var(--text-hint);padding:1px 5px;border:1px solid var(--border);border-radius:4px;}
+  .r-score{font-size:12px;color:var(--text-sub);min-width:36px;text-align:center;}
+  .r-badge{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;}
+  .r-badge.win{background:var(--green-light);color:var(--green);}
+  .r-badge.lose{background:var(--red-light);color:var(--red);}
+  .r-badge.draw{background:var(--gray-light);color:var(--gray);}
+  .r-del{color:var(--text-hint);font-size:18px;cursor:pointer;padding:0 2px;}
+  .rec-row2{display:flex;gap:10px;margin-top:5px;font-size:11px;color:var(--text-hint);}
+  .empty{text-align:center;color:var(--text-hint);font-size:13px;padding:24px;line-height:1.8;}
+  .msg-ok{color:var(--green);font-size:13px;}
+  .msg-err{color:var(--red);font-size:13px;}
+  .msg-loading{color:var(--text-sub);font-size:13px;}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>🦅 한화 이글스 직관 기록</h1>
-  <p>직관 경기 기록 + 홈/원정 승률 + 지출 분석</p>
+<!-- 로그인 화면 -->
+<div id="authScreen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">🦅</div>
+    <div class="auth-title">한화 이글스 직관 기록</div>
+    <div class="auth-sub">로그인하면 어느 기기에서나 기록이 유지돼요</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">로그인</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">회원가입</button>
+    </div>
+    <div class="auth-field">
+      <label>아이디</label>
+      <input type="text" id="authUsername" placeholder="아이디 입력" autocomplete="username" />
+    </div>
+    <div class="auth-field">
+      <label>비밀번호</label>
+      <input type="password" id="authPassword" placeholder="비밀번호 입력" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') submitAuth()" />
+    </div>
+    <button class="btn-auth" id="authSubmitBtn" onclick="submitAuth()">로그인</button>
+    <div class="auth-err" id="authErr"></div>
+  </div>
 </div>
 
-<div class="content">
-  <div class="card">
-    <div class="tab-row">
-      <button class="tab-btn active" onclick="switchTab('auto')">자동 검색</button>
-      <button class="tab-btn" onclick="switchTab('manual')">수동 입력</button>
-    </div>
-
-    <!-- 자동 검색 -->
-    <div class="tab-panel active" id="tab-auto">
-      <div class="label">직관 날짜</div>
-      <div class="date-search-row">
-        <input type="date" id="autoDate" />
-        <button class="btn-search" id="searchBtn" onclick="searchGame()">검색</button>
-      </div>
-      <div class="result-box" id="resultBox">
-        <span style="font-size:13px;color:var(--text-hint)">날짜를 선택하고 검색을 눌러주세요</span>
-      </div>
-      <div id="editSection" style="display:none">
-        <div class="edit-section">
-          <div class="label" style="color:var(--orange);margin-bottom:8px">결과 수정 (틀리면 고쳐주세요)</div>
-          <div class="row3">
-            <div class="fgroup"><label class="label" style="font-size:10px">상대팀</label><input id="editOpp" type="text" /></div>
-            <div class="fgroup"><label class="label" style="font-size:10px">한화</label><input id="editHS" type="number" min="0" /></div>
-            <div class="fgroup"><label class="label" style="font-size:10px">상대</label><input id="editOS" type="number" min="0" /></div>
-          </div>
-          <div class="row2" style="margin-bottom:0">
-            <div class="fgroup">
-              <label class="label" style="font-size:10px">홈/원정</label>
-              <select id="editHA"><option value="">모름</option><option value="홈">홈경기</option><option value="원정">원정경기</option></select>
-            </div>
-            <div class="fgroup">
-              <label class="label" style="font-size:10px">결과</label>
-              <div class="result-toggle">
-                <button id="et-win" onclick="setEditResult('승')">승</button>
-                <button id="et-lose" onclick="setEditResult('패')">패</button>
-                <button id="et-draw" onclick="setEditResult('무')">무</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="extra-section">
-          <div class="label" style="margin-bottom:8px">직관 정보</div>
-          <div class="row2" style="margin-bottom:0">
-            <div class="fgroup"><label class="label" style="font-size:10px">같이 간 인원 (본인 포함)</label><input id="editPeople" type="number" min="1" placeholder="1" /></div>
-            <div class="fgroup"><label class="label" style="font-size:10px">총 지출 (원)</label><input id="editCost" type="number" min="0" placeholder="0" /></div>
-          </div>
-        </div>
-      </div>
-      <button class="btn-add" id="addAutoBtn" disabled onclick="addAutoRecord()">직관 기록 추가</button>
-    </div>
-
-    <!-- 수동 입력 -->
-    <div class="tab-panel" id="tab-manual">
-      <div class="label">경기 정보</div>
-      <div class="row2">
-        <div class="fgroup"><label class="label" style="font-size:10px">날짜</label><input type="date" id="manDate" /></div>
-        <div class="fgroup">
-          <label class="label" style="font-size:10px">상대팀</label>
-          <select id="manOpp">
-            <option value="">선택</option>
-            <option>삼성</option><option>KIA</option><option>LG</option>
-            <option>두산</option><option>SSG</option><option>NC</option>
-            <option>롯데</option><option>KT</option><option>키움</option>
-          </select>
-        </div>
-      </div>
-      <div class="row3">
-        <div class="fgroup"><label class="label" style="font-size:10px">한화 점수</label><input id="manHS" type="number" min="0" placeholder="0" /></div>
-        <div class="fgroup"><label class="label" style="font-size:10px">상대 점수</label><input id="manOS" type="number" min="0" placeholder="0" /></div>
-        <div class="fgroup">
-          <label class="label" style="font-size:10px">홈/원정</label>
-          <select id="manHA"><option value="">모름</option><option value="홈">홈경기</option><option value="원정">원정경기</option></select>
-        </div>
-      </div>
-      <div class="fgroup" style="margin-bottom:10px">
-        <label class="label" style="font-size:10px">결과</label>
-        <div class="result-toggle">
-          <button id="mt-win" onclick="setManResult('승')">승</button>
-          <button id="mt-lose" onclick="setManResult('패')">패</button>
-          <button id="mt-draw" onclick="setManResult('무')">무</button>
-        </div>
-      </div>
-      <div class="label">직관 정보</div>
-      <div class="row2" style="margin-bottom:10px">
-        <div class="fgroup"><label class="label" style="font-size:10px">같이 간 인원 (본인 포함)</label><input id="manPeople" type="number" min="1" placeholder="1" /></div>
-        <div class="fgroup"><label class="label" style="font-size:10px">총 지출 (원)</label><input id="manCost" type="number" min="0" placeholder="0" /></div>
-      </div>
-      <button class="btn-add" onclick="addManualRecord()">직관 기록 추가</button>
+<!-- 메인 화면 -->
+<div id="mainScreen" style="display:none">
+  <div class="header">
+    <h1>🦅 한화 이글스 직관 기록</h1>
+    <p id="headerUser"></p>
+    <div class="header-right">
+      <button class="btn-logout" onclick="logout()">로그아웃</button>
     </div>
   </div>
 
-  <!-- 통계 -->
-  <div class="card">
-    <div class="section-title">직관 승률</div>
-    <div class="stat-tabs">
-      <button class="stat-tab active" onclick="switchStatTab('all')">전체</button>
-      <button class="stat-tab" onclick="switchStatTab('home')">홈경기</button>
-      <button class="stat-tab" onclick="switchStatTab('away')">원정경기</button>
+  <div class="content">
+    <div class="card">
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchTab('auto')">자동 검색</button>
+        <button class="tab-btn" onclick="switchTab('manual')">수동 입력</button>
+      </div>
+
+      <!-- 자동 검색 -->
+      <div class="tab-panel active" id="tab-auto">
+        <div class="label">직관 날짜</div>
+        <div class="date-search-row">
+          <input type="date" id="autoDate" />
+          <button class="btn-search" id="searchBtn" onclick="searchGame()">검색</button>
+        </div>
+        <div class="result-box" id="resultBox">
+          <span style="font-size:13px;color:var(--text-hint)">날짜를 선택하고 검색을 눌러주세요</span>
+        </div>
+        <div id="editSection" style="display:none">
+          <div class="edit-section">
+            <div class="label" style="color:var(--orange);margin-bottom:8px">결과 수정 (틀리면 고쳐주세요)</div>
+            <div class="row3">
+              <div class="fgroup"><label class="label" style="font-size:10px">상대팀</label><input id="editOpp" type="text"/></div>
+              <div class="fgroup"><label class="label" style="font-size:10px">한화</label><input id="editHS" type="number" min="0"/></div>
+              <div class="fgroup"><label class="label" style="font-size:10px">상대</label><input id="editOS" type="number" min="0"/></div>
+            </div>
+            <div class="row2" style="margin-bottom:0">
+              <div class="fgroup">
+                <label class="label" style="font-size:10px">홈/원정</label>
+                <select id="editHA"><option value="">모름</option><option value="홈">홈경기</option><option value="원정">원정경기</option></select>
+              </div>
+              <div class="fgroup">
+                <label class="label" style="font-size:10px">결과</label>
+                <div class="result-toggle">
+                  <button id="et-win" onclick="setEditResult('승')">승</button>
+                  <button id="et-lose" onclick="setEditResult('패')">패</button>
+                  <button id="et-draw" onclick="setEditResult('무')">무</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="extra-section">
+            <div class="label" style="margin-bottom:8px">직관 정보</div>
+            <div class="row2" style="margin-bottom:0">
+              <div class="fgroup"><label class="label" style="font-size:10px">같이 간 인원</label><input id="editPeople" type="number" min="1" placeholder="1"/></div>
+              <div class="fgroup"><label class="label" style="font-size:10px">총 지출 (원)</label><input id="editCost" type="number" min="0" placeholder="0"/></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn-add" id="addAutoBtn" disabled onclick="addAutoRecord()">직관 기록 추가</button>
+      </div>
+
+      <!-- 수동 입력 -->
+      <div class="tab-panel" id="tab-manual">
+        <div class="label">경기 정보</div>
+        <div class="row2">
+          <div class="fgroup"><label class="label" style="font-size:10px">날짜</label><input type="date" id="manDate"/></div>
+          <div class="fgroup">
+            <label class="label" style="font-size:10px">상대팀</label>
+            <select id="manOpp">
+              <option value="">선택</option>
+              <option>삼성</option><option>KIA</option><option>LG</option>
+              <option>두산</option><option>SSG</option><option>NC</option>
+              <option>롯데</option><option>KT</option><option>키움</option>
+            </select>
+          </div>
+        </div>
+        <div class="row3">
+          <div class="fgroup"><label class="label" style="font-size:10px">한화 점수</label><input id="manHS" type="number" min="0" placeholder="0"/></div>
+          <div class="fgroup"><label class="label" style="font-size:10px">상대 점수</label><input id="manOS" type="number" min="0" placeholder="0"/></div>
+          <div class="fgroup">
+            <label class="label" style="font-size:10px">홈/원정</label>
+            <select id="manHA"><option value="">모름</option><option value="홈">홈경기</option><option value="원정">원정경기</option></select>
+          </div>
+        </div>
+        <div class="fgroup" style="margin-bottom:10px">
+          <label class="label" style="font-size:10px">결과</label>
+          <div class="result-toggle">
+            <button id="mt-win" onclick="setManResult('승')">승</button>
+            <button id="mt-lose" onclick="setManResult('패')">패</button>
+            <button id="mt-draw" onclick="setManResult('무')">무</button>
+          </div>
+        </div>
+        <div class="label">직관 정보</div>
+        <div class="row2" style="margin-bottom:10px">
+          <div class="fgroup"><label class="label" style="font-size:10px">같이 간 인원</label><input id="manPeople" type="number" min="1" placeholder="1"/></div>
+          <div class="fgroup"><label class="label" style="font-size:10px">총 지출 (원)</label><input id="manCost" type="number" min="0" placeholder="0"/></div>
+        </div>
+        <button class="btn-add" onclick="addManualRecord()">직관 기록 추가</button>
+      </div>
     </div>
-    <div class="stats-grid" id="statsGrid"></div>
 
-    <div class="section-title">지출 분석 💸</div>
-    <div class="money-grid" id="moneyGrid"></div>
-
-    <div class="section-title">기록 목록</div>
-    <div class="records-list" id="recordsList"></div>
+    <!-- 통계 -->
+    <div class="card">
+      <div class="section-title">직관 승률</div>
+      <div class="stat-tabs">
+        <button class="stat-tab active" onclick="switchStatTab('all')">전체</button>
+        <button class="stat-tab" onclick="switchStatTab('home')">홈경기</button>
+        <button class="stat-tab" onclick="switchStatTab('away')">원정경기</button>
+      </div>
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="section-title">지출 분석 💸</div>
+      <div class="money-grid" id="moneyGrid"></div>
+      <div class="section-title">기록 목록</div>
+      <div class="records-list" id="recordsList"></div>
+    </div>
   </div>
 </div>
 
 <script>
-// ✅ Render 배포 후 여기에 본인 서버 URL 입력하세요
-// 예: const SERVER_URL = 'https://eagles-kbo-api.onrender.com';
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+// ✅ Railway 서버 URL
+const SERVER_URL = 'YOUR_RENDER_URL_HERE';
 
-const STORAGE_KEY = 'eagles_v3';
-let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let token = localStorage.getItem('eagles_token') || '';
+let username = localStorage.getItem('eagles_username') || '';
+let records = [];
 let foundGame = null, editResult = null, manResult = null;
 let currentStatTab = 'all';
+let authMode = 'login';
 
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+// ── 인증 ───────────────────────────────────────────────────
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((b,i) =>
+    b.classList.toggle('active', (i===0&&mode==='login')||(i===1&&mode==='register')));
+  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? '로그인' : '회원가입';
+  document.getElementById('authErr').textContent = '';
+}
 
+async function submitAuth() {
+  const u = document.getElementById('authUsername').value.trim();
+  const p = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authErr');
+  errEl.textContent = '';
+  if (!u || !p) { errEl.textContent = '아이디와 비밀번호를 입력해주세요'; return; }
+
+  const btn = document.getElementById('authSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = '처리 중...';
+
+  try {
+    const res = await fetch(`${SERVER_URL}/auth/${authMode}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || '오류가 발생했어요'; return; }
+    token = data.token;
+    username = data.username;
+    localStorage.setItem('eagles_token', token);
+    localStorage.setItem('eagles_username', username);
+    showMain();
+  } catch(e) {
+    errEl.textContent = '서버 연결 오류';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode === 'login' ? '로그인' : '회원가입';
+  }
+}
+
+async function logout() {
+  try {
+    await fetch(`${SERVER_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  } catch(e) {}
+  token = ''; username = '';
+  localStorage.removeItem('eagles_token');
+  localStorage.removeItem('eagles_username');
+  records = [];
+  document.getElementById('mainScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+function showMain() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('mainScreen').style.display = 'block';
+  document.getElementById('headerUser').textContent = `${username}님의 직관 기록`;
+  loadRecords();
+}
+
+// 자동 로그인
+if (token) showMain();
+
+// ── 기록 CRUD ──────────────────────────────────────────────
+async function loadRecords() {
+  try {
+    const res = await fetch(`${SERVER_URL}/records`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.status === 401) { logout(); return; }
+    records = await res.json();
+    renderAll();
+  } catch(e) {}
+}
+
+async function saveRecord(record) {
+  const res = await fetch(`${SERVER_URL}/records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(record)
+  });
+  return res;
+}
+
+async function deleteRecordApi(id) {
+  await fetch(`${SERVER_URL}/records/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+}
+
+// ── 탭 전환 ────────────────────────────────────────────────
 function switchTab(t) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0&&t==='auto')||(i===1&&t==='manual')));
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active',(i===0&&t==='auto')||(i===1&&t==='manual')));
   document.getElementById('tab-auto').classList.toggle('active', t==='auto');
   document.getElementById('tab-manual').classList.toggle('active', t==='manual');
 }
-
 function switchStatTab(t) {
   currentStatTab = t;
-  document.querySelectorAll('.stat-tab').forEach((b,i) => b.classList.toggle('active', ['all','home','away'][i]===t));
+  document.querySelectorAll('.stat-tab').forEach((b,i) => b.classList.toggle('active',['all','home','away'][i]===t));
   renderStats();
 }
-
 function setEditResult(v) {
   editResult = v;
   document.getElementById('et-win').className = v==='승'?'sel-win':'';
@@ -247,6 +384,7 @@ function setManResult(v) {
   document.getElementById('mt-draw').className = v==='무'?'sel-draw':'';
 }
 
+// ── 경기 검색 ──────────────────────────────────────────────
 async function searchGame() {
   const dateVal = document.getElementById('autoDate').value;
   if (!dateVal) { alert('날짜를 선택해주세요'); return; }
@@ -257,13 +395,12 @@ async function searchGame() {
   btn.disabled = true; foundGame = null; editResult = null;
   box.innerHTML = '<span class="msg-loading">KBO 경기 결과 검색 중...</span>';
   try {
-    const resp = await fetch(`${SERVER_URL}/game?date=${dateVal}`);
-    if (!resp.ok) throw new Error('서버 오류');
-    const p = await resp.json();
+    const res = await fetch(`${SERVER_URL}/game?date=${dateVal}`);
+    const p = await res.json();
     if (!p.found) {
       box.innerHTML = `<span class="msg-err">해당 날짜 한화 경기를 찾지 못했어요<br><small style="color:var(--text-hint)">수동 입력 탭으로 추가하세요</small></span>`;
     } else {
-      foundGame = { date: dateVal, opponent: p.opponent, hanwha_score: p.hanwha_score, opponent_score: p.opponent_score, result: p.result, home_away: p.home_away||'' };
+      foundGame = { date: dateVal, opponent: p.opponent, hanwha_score: p.hanwha_score, opponent_score: p.opponent_score, result: p.result, home_away: p.home_away||'', stadium: p.stadium||'' };
       const rc = p.result==='승'?'color:var(--green)':p.result==='패'?'color:var(--red)':'color:var(--gray)';
       box.innerHTML = `<div class="result-grid">
         <div class="rg-item"><div class="rg-label">상대팀</div><div class="rg-val">${p.opponent}</div></div>
@@ -271,20 +408,20 @@ async function searchGame() {
         <div class="rg-item"><div class="rg-label">결과</div><div class="rg-val" style="${rc}">${p.result??'미정'} (${p.home_away})</div></div>
       </div>`;
       document.getElementById('editOpp').value = p.opponent;
-      document.getElementById('editHS').value = p.hanwha_score ?? '';
-      document.getElementById('editOS').value = p.opponent_score ?? '';
-      document.getElementById('editHA').value = p.home_away || '';
+      document.getElementById('editHS').value = p.hanwha_score??'';
+      document.getElementById('editOS').value = p.opponent_score??'';
+      document.getElementById('editHA').value = p.home_away||'';
       setEditResult(p.result);
       document.getElementById('editSection').style.display = 'block';
       document.getElementById('addAutoBtn').disabled = false;
     }
   } catch(e) {
-    box.innerHTML = `<span class="msg-err">서버 연결 오류. 잠시 후 다시 시도하거나 수동 입력을 이용해주세요.</span>`;
+    box.innerHTML = `<span class="msg-err">서버 연결 오류. 잠시 후 다시 시도해주세요.</span>`;
   }
   btn.disabled = false;
 }
 
-function addAutoRecord() {
+async function addAutoRecord() {
   if (!foundGame) return;
   const opp = document.getElementById('editOpp').value.trim() || foundGame.opponent;
   const hs = parseInt(document.getElementById('editHS').value);
@@ -293,19 +430,24 @@ function addAutoRecord() {
   const ha = document.getElementById('editHA').value;
   const people = parseInt(document.getElementById('editPeople').value) || 1;
   const cost = parseInt(document.getElementById('editCost').value) || 0;
-  if (records.find(r => r.date === foundGame.date)) { alert('해당 날짜 기록이 이미 있어요!'); return; }
-  records.unshift({ id: Date.now(), date: foundGame.date, opponent: opp,
+
+  const r = await saveRecord({ date: foundGame.date, opponent: opp,
     hanwha_score: isNaN(hs)?foundGame.hanwha_score:hs,
     opponent_score: isNaN(os)?foundGame.opponent_score:os,
-    result: res, home_away: ha, people, cost });
-  save(); renderAll();
-  document.getElementById('addAutoBtn').disabled = true;
-  document.getElementById('editSection').style.display = 'none';
-  document.getElementById('resultBox').innerHTML = '<span class="msg-ok">✓ 기록이 추가되었어요!</span>';
-  foundGame = null;
+    result: res, home_away: ha, stadium: foundGame.stadium, people, cost });
+  if (r.ok) {
+    await loadRecords();
+    document.getElementById('addAutoBtn').disabled = true;
+    document.getElementById('editSection').style.display = 'none';
+    document.getElementById('resultBox').innerHTML = '<span class="msg-ok">✓ 기록이 추가되었어요!</span>';
+    foundGame = null;
+  } else {
+    const d = await r.json();
+    alert(d.error || '추가 실패');
+  }
 }
 
-function addManualRecord() {
+async function addManualRecord() {
   const date = document.getElementById('manDate').value;
   const opp = document.getElementById('manOpp').value;
   const hs = parseInt(document.getElementById('manHS').value);
@@ -314,32 +456,36 @@ function addManualRecord() {
   const people = parseInt(document.getElementById('manPeople').value) || 1;
   const cost = parseInt(document.getElementById('manCost').value) || 0;
   if (!date||!opp||isNaN(hs)||isNaN(os)||!manResult) { alert('모든 항목을 입력해주세요'); return; }
-  if (records.find(r => r.date === date)) { alert('해당 날짜 기록이 이미 있어요!'); return; }
-  records.unshift({ id: Date.now(), date, opponent: opp, hanwha_score: hs, opponent_score: os, result: manResult, home_away: ha, people, cost });
-  save(); renderAll();
-  ['manDate','manHS','manOS','manPeople','manCost'].forEach(id => document.getElementById(id).value='');
-  document.getElementById('manOpp').value=''; document.getElementById('manHA').value='';
-  setManResult(null); manResult = null;
-  alert('✓ 기록이 추가되었어요!');
+
+  const r = await saveRecord({ date, opponent: opp, hanwha_score: hs, opponent_score: os, result: manResult, home_away: ha, stadium: '', people, cost });
+  if (r.ok) {
+    await loadRecords();
+    ['manDate','manHS','manOS','manPeople','manCost'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('manOpp').value=''; document.getElementById('manHA').value='';
+    setManResult(null); manResult = null;
+    alert('✓ 기록이 추가되었어요!');
+  } else {
+    const d = await r.json();
+    alert(d.error || '추가 실패');
+  }
 }
 
-function deleteRecord(id) {
+async function deleteRecord(id) {
   if (!confirm('이 기록을 삭제할까요?')) return;
-  records = records.filter(r => r.id !== id);
-  save(); renderAll();
+  await deleteRecordApi(id);
+  await loadRecords();
 }
 
+// ── 렌더링 ─────────────────────────────────────────────────
 function getFiltered() {
   if (currentStatTab === 'home') return records.filter(r => r.home_away === '홈');
   if (currentStatTab === 'away') return records.filter(r => r.home_away === '원정');
   return records;
 }
-
 function fmt(n) {
-  if (n === null || n === undefined || isNaN(n)) return '-';
+  if (n===null||n===undefined||isNaN(n)) return '-';
   return n.toLocaleString('ko-KR') + '원';
 }
-
 function renderStats() {
   const f = getFiltered();
   const total = f.length;
@@ -350,29 +496,23 @@ function renderStats() {
     <div class="stat-box"><div class="sv">${total}</div><div class="sl">총 직관</div></div>
     <div class="stat-box win"><div class="sv">${wins}</div><div class="sl">승</div></div>
     <div class="stat-box lose"><div class="sv">${loses}</div><div class="sl">패</div></div>
-    <div class="stat-box rate"><div class="sv">${rate}</div><div class="sl">직관 승률</div></div>
-  `;
-  const withCost = f.filter(r => r.cost > 0);
-  const avgPerPerson = withCost.length > 0
-    ? Math.round(withCost.reduce((s,r)=>s+Math.round(r.cost/(r.people||1)),0)/withCost.length) : null;
-  const winGames = withCost.filter(r=>r.result==='승');
-  const loseGames = withCost.filter(r=>r.result==='패');
-  const avgWin = winGames.length > 0
-    ? Math.round(winGames.reduce((s,r)=>s+Math.round(r.cost/(r.people||1)),0)/winGames.length) : null;
-  const avgLose = loseGames.length > 0
-    ? Math.round(loseGames.reduce((s,r)=>s+Math.round(r.cost/(r.people||1)),0)/loseGames.length) : null;
+    <div class="stat-box rate"><div class="sv">${rate}</div><div class="sl">직관 승률</div></div>`;
+  const wc = f.filter(r=>r.cost>0);
+  const avg = wc.length>0 ? Math.round(wc.reduce((s,r)=>s+Math.round(r.cost/(r.people||1)),0)/wc.length) : null;
+  const wg = wc.filter(r=>r.result==='승');
+  const lg = wc.filter(r=>r.result==='패');
+  const aw = wg.length>0 ? Math.round(wg.reduce((s,r)=>s+Math.round(r.cost/(r.people||1)),0)/wg.length) : null;
+  const al = lg.length>0 ? Math.round(lg.reduce((s,r)=>s+Math.round(r.cost/(r.people||1)),0)/lg.length) : null;
   document.getElementById('moneyGrid').innerHTML = `
-    <div class="money-box"><div class="mv">${fmt(avgPerPerson)}</div><div class="ml">1인당 평균</div></div>
-    <div class="money-box win"><div class="mv">${fmt(avgWin)}</div><div class="ml">승리 시 1인당</div></div>
-    <div class="money-box lose"><div class="mv">${fmt(avgLose)}</div><div class="ml">패배 시 1인당</div></div>
-  `;
+    <div class="money-box"><div class="mv">${fmt(avg)}</div><div class="ml">1인당 평균</div></div>
+    <div class="money-box win"><div class="mv">${fmt(aw)}</div><div class="ml">승리 시 1인당</div></div>
+    <div class="money-box lose"><div class="mv">${fmt(al)}</div><div class="ml">패배 시 1인당</div></div>`;
 }
-
 function renderList() {
   const el = document.getElementById('recordsList');
   if (!records.length) { el.innerHTML = '<div class="empty">아직 직관 기록이 없어요<br>첫 직관을 추가해보세요! 🦅</div>'; return; }
   el.innerHTML = records.map(r => {
-    const perPerson = r.cost > 0 ? Math.round(r.cost/(r.people||1)) : null;
+    const pp = r.cost>0 ? Math.round(r.cost/(r.people||1)) : null;
     return `<div class="record-item">
       <div class="rec-row1">
         <span class="r-date">${r.date}</span>
@@ -385,18 +525,16 @@ function renderList() {
       ${(r.cost>0||r.people>1)?`<div class="rec-row2">
         <span>👥 ${r.people||1}명</span>
         ${r.cost>0?`<span>💸 총 ${r.cost.toLocaleString('ko-KR')}원</span>`:''}
-        ${perPerson?`<span>1인당 ${perPerson.toLocaleString('ko-KR')}원</span>`:''}
+        ${pp?`<span>1인당 ${pp.toLocaleString('ko-KR')}원</span>`:''}
       </div>`:''}
     </div>`;
   }).join('');
 }
-
 function renderAll() { renderStats(); renderList(); }
 
 const today = new Date().toISOString().split('T')[0];
 document.getElementById('autoDate').max = today;
 document.getElementById('manDate').max = today;
-renderAll();
 </script>
 </body>
 </html>
