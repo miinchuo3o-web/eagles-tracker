@@ -12,31 +12,52 @@ def get_kbo_schedule(year, month):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer": "https://www.koreabaseball.com/",
+        "Accept-Language": "ko-KR,ko;q=0.9",
     }
     session = requests.Session()
-    res = session.get(url, headers=headers)
+
+    # 먼저 페이지 로드
+    res = session.get(url, headers=headers, timeout=15)
     soup = BeautifulSoup(res.text, 'html.parser')
 
     viewstate = soup.find('input', {'id': '__VIEWSTATE'})
     viewstate_gen = soup.find('input', {'id': '__VIEWSTATEGENERATOR'})
     event_validation = soup.find('input', {'id': '__EVENTVALIDATION'})
 
-    data = {
+    # 연도 먼저 변경
+    data_year = {
         '__VIEWSTATE': viewstate['value'] if viewstate else '',
         '__VIEWSTATEGENERATOR': viewstate_gen['value'] if viewstate_gen else '',
         '__EVENTVALIDATION': event_validation['value'] if event_validation else '',
+        '__EVENTTARGET': 'ddlYear',
+        '__EVENTARGUMENT': '',
+        'ddlYear': str(year),
+        'ddlMonth': str(month).zfill(2),
+        'ddlSeries': '0,9,6',
+    }
+    res2 = session.post(url, data=data_year, headers=headers, timeout=15)
+    soup2 = BeautifulSoup(res2.text, 'html.parser')
+
+    viewstate2 = soup2.find('input', {'id': '__VIEWSTATE'})
+    viewstate_gen2 = soup2.find('input', {'id': '__VIEWSTATEGENERATOR'})
+    event_validation2 = soup2.find('input', {'id': '__EVENTVALIDATION'})
+
+    # 월 변경
+    data_month = {
+        '__VIEWSTATE': viewstate2['value'] if viewstate2 else '',
+        '__VIEWSTATEGENERATOR': viewstate_gen2['value'] if viewstate_gen2 else '',
+        '__EVENTVALIDATION': event_validation2['value'] if event_validation2 else '',
         '__EVENTTARGET': 'ddlMonth',
         '__EVENTARGUMENT': '',
         'ddlYear': str(year),
         'ddlMonth': str(month).zfill(2),
         'ddlSeries': '0,9,6',
     }
-
-    res2 = session.post(url, data=data, headers=headers)
-    soup2 = BeautifulSoup(res2.text, 'html.parser')
+    res3 = session.post(url, data=data_month, headers=headers, timeout=15)
+    soup3 = BeautifulSoup(res3.text, 'html.parser')
 
     games = []
-    table = soup2.find('table', {'id': 'tblScheduleList'})
+    table = soup3.find('table', {'id': 'tblScheduleList'})
     if not table:
         return games
 
@@ -54,20 +75,26 @@ def get_kbo_schedule(year, month):
         if day_cell:
             date_text = day_cell.get_text(strip=True)[:5]
             try:
-                m, d = date_text.split('.')
-                current_date = f"{year}-{int(m):02d}-{int(d):02d}"
-            except:
+                parts = date_text.replace(' ', '').split('.')
+                m = int(parts[0])
+                d = int(parts[1])
+                current_date = f"{year}-{m:02d}-{d:02d}"
+            except Exception as e:
                 pass
 
         if not current_date:
             continue
 
-        # 팀명 추출
-        team_spans = play_cell.find_all('span')
+        # 팀명 추출 - 여러 방법 시도
         team_names = []
-        for sp in team_spans:
+
+        # 방법 1: span 직접 추출
+        all_spans = play_cell.find_all('span')
+        for sp in all_spans:
+            if sp.find('em'):
+                continue
             txt = sp.get_text(strip=True)
-            if txt and not sp.find('em') and len(txt) <= 4:
+            if txt and len(txt) <= 6 and not txt.isdigit():
                 team_names.append(txt)
 
         # 점수 추출
@@ -79,8 +106,11 @@ def get_kbo_schedule(year, month):
                 except:
                     pass
 
-        away_team = team_names[0] if len(team_names) > 0 else ''
-        home_team = team_names[1] if len(team_names) > 1 else ''
+        if len(team_names) < 2:
+            continue
+
+        away_team = team_names[0]
+        home_team = team_names[1]
         away_score = scores[0] if len(scores) > 0 else None
         home_score = scores[1] if len(scores) > 1 else None
 
@@ -97,22 +127,32 @@ def get_kbo_schedule(year, month):
 
 @app.route('/game', methods=['GET'])
 def get_game():
-    date_str = request.args.get('date', '')
+    date_str = request.args.get('date', '').strip()
     if not date_str:
-        return jsonify({'error': 'date 파라미터가 필요해요 (예: ?date=2025-05-01)'}), 400
+        return jsonify({'error': 'date 파라미터가 필요해요 (예: ?date=2026-03-28)'}), 400
 
     try:
         date_obj = datetime.strptime(date_str, '%Y-%m-%d')
     except:
-        return jsonify({'error': '날짜 형식이 올바르지 않아요 (예: 2025-05-01)'}), 400
+        return jsonify({'error': '날짜 형식이 올바르지 않아요 (예: 2026-03-28)'}), 400
 
     year = date_obj.year
     month = date_obj.month
 
+    games = []
     try:
         games = get_kbo_schedule(year, month)
     except Exception as e:
-        return jsonify({'error': f'KBO 데이터 수집 실패: {str(e)}'}), 500
+        return jsonify({'error': f'KBO 데이터 수집 실패: {str(e)}', 'found': False}), 500
+
+    # 데이터 없으면 인접 월도 시도 (3월 경기가 다음달에 묶이는 경우)
+    if not games:
+        try:
+            next_month = month + 1 if month < 12 else 1
+            next_year = year if month < 12 else year + 1
+            games = get_kbo_schedule(next_year, next_month)
+        except:
+            pass
 
     HANWHA_NAMES = ['한화', 'HH', '이글스']
 
@@ -156,6 +196,22 @@ def get_game():
         })
 
     return jsonify({'found': False, 'date': date_str})
+
+
+@app.route('/debug', methods=['GET'])
+def debug():
+    """날짜의 파싱 결과를 디버그용으로 반환"""
+    date_str = request.args.get('date', '2026-03-28')
+    try:
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        games = get_kbo_schedule(date_obj.year, date_obj.month)
+        return jsonify({
+            'requested_date': date_str,
+            'total_games_found': len(games),
+            'games': games[:20]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 
 @app.route('/health', methods=['GET'])
