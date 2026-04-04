@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
 from datetime import datetime
+import calendar
 
 app = Flask(__name__)
 CORS(app)
@@ -9,77 +10,96 @@ CORS(app)
 HOME_STADIUM = '대전'
 AWAY_STADIUMS = ['잠실', '문학', '대구', '창원', '수원', '사직', '고척', '광주']
 
-def fetch_naver_schedule(date_str):
-    """네이버 스포츠 KBO 일정 API"""
-    date_nodash = date_str.replace('-', '')  # 20260328
-    url = f"https://sports.news.naver.com/kbaseball/schedule/index.nhn?year={date_str[:4]}&month={date_str[5:7]}"
+def fetch_naver_kbo(year, month):
+    last_day = calendar.monthrange(year, month)[1]
+    from_date = f"{year}-{month:02d}-01"
+    to_date = f"{year}-{month:02d}-{last_day:02d}"
 
-    # 네이버 스포츠 KBO 경기 결과 API
-    api_url = "https://api-gw.sports.naver.com/schedule/games"
+    url = "https://api-gw.sports.naver.com/schedule/games"
     params = {
-        'fields': 'basic,schedule,gameId,homeTeamCode,awayTeamCode,homeTeamScore,awayTeamScore,statusCode,stadium',
-        'leagueCode': 'KBO',
-        'fromDate': date_str,
-        'toDate': date_str,
-        'roundCode': '',
-        'size': 20,
+        'fields': 'basic,schedule,baseball,manualRelayUrl',
+        'upperCategoryId': 'kbaseball',
+        'categoryId': 'kbo',
+        'fromDate': from_date,
+        'toDate': to_date,
+        'roundCodes': '',
+        'size': 500,
     }
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
-        'Referer': 'https://sports.news.naver.com/',
-        'Origin': 'https://sports.news.naver.com',
+        'Referer': 'https://m.sports.naver.com/kbaseball/schedule/index',
+        'Origin': 'https://m.sports.naver.com',
     }
-
-    res = requests.get(api_url, params=params, headers=headers, timeout=15)
+    res = requests.get(url, params=params, headers=headers, timeout=15)
     return res.json()
 
 
-def fetch_naver_schedule_v2(date_str):
-    """네이버 스포츠 KBO 일정 API v2"""
-    year = date_str[:4]
-    month = date_str[5:7]
-    date_nodash = date_str.replace('-', '')
+def find_hanwha(data, date_str):
+    # 결과 구조에서 게임 목록 추출
+    games = []
+    if isinstance(data, dict):
+        result = data.get('result', data)
+        games = result.get('games', []) if isinstance(result, dict) else []
+        if not games:
+            for key in ['games', 'data', 'list', 'schedule']:
+                val = data.get(key, [])
+                if isinstance(val, list) and val:
+                    games = val
+                    break
 
-    api_url = f"https://sports.news.naver.com/kbaseball/schedule/index.nhn"
-    params = {
-        'year': year,
-        'month': month,
-    }
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
-        'Referer': 'https://sports.news.naver.com/kbaseball/schedule/index.nhn',
-    }
-    res = requests.get(api_url, params=params, headers=headers, timeout=15)
+    for g in games:
+        if not isinstance(g, dict):
+            continue
 
-    from bs4 import BeautifulSoup
-    soup = BeautifulSoup(res.text, 'html.parser')
-    return soup, res.text
+        game_date = g.get('gameDate', '')[:10]
+        if game_date != date_str:
+            continue
 
+        home_name = g.get('homeTeamName', '')
+        away_name = g.get('awayTeamName', '')
+        home_code = g.get('homeTeamCode', '')
+        away_code = g.get('awayTeamCode', '')
 
-def fetch_daum_sports(date_str):
-    """다음 스포츠 KBO API"""
-    date_nodash = date_str.replace('-', '')
-    api_url = f"https://sports.daum.net/api/game/schedule/kbo?date={date_nodash}"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
-        'Referer': 'https://sports.daum.net/',
-    }
-    res = requests.get(api_url, headers=headers, timeout=15)
-    return res.json()
+        is_hanwha_home = '한화' in home_name or home_code == 'HH'
+        is_hanwha_away = '한화' in away_name or away_code == 'HH'
 
+        if not (is_hanwha_home or is_hanwha_away):
+            continue
 
-TEAM_CODE = {
-    'HH': '한화', 'OB': '두산', 'LG': 'LG', 'SS': '삼성',
-    'SK': 'SSG', 'NC': 'NC', 'KT': 'KT', 'LT': '롯데',
-    'WO': '키움', 'HT': 'KIA',
-    # 다음 스포츠 코드
-    'HAN': '한화', 'DUS': '두산', 'LGT': 'LG', 'SAM': '삼성',
-    'SSG': 'SSG', 'NCO': 'NC', 'KTW': 'KT', 'LOT': '롯데',
-    'KIW': '키움', 'KIA': 'KIA',
-}
+        stadium = g.get('stadium', '')
 
-def code_to_name(code):
-    return TEAM_CODE.get(code, code)
+        if HOME_STADIUM in stadium:
+            home_away = '홈'
+        elif any(s in stadium for s in AWAY_STADIUMS):
+            home_away = '원정'
+        else:
+            home_away = '홈' if is_hanwha_home else '원정'
+
+        is_away = home_away == '원정'
+        opponent = home_name if is_away else away_name
+        h_score = g.get('awayTeamScore') if is_away else g.get('homeTeamScore')
+        o_score = g.get('homeTeamScore') if is_away else g.get('awayTeamScore')
+
+        result = None
+        status = g.get('statusCode', '')
+        if status in ('RESULT', 'CLOSE', 'END') or g.get('statusInfo', '') in ('종료', '경기종료'):
+            try:
+                hs, os = int(h_score), int(o_score)
+                result = '승' if hs > os else ('패' if hs < os else '무')
+            except:
+                pass
+
+        return {
+            'found': True,
+            'date': date_str,
+            'opponent': opponent,
+            'hanwha_score': h_score,
+            'opponent_score': o_score,
+            'result': result,
+            'home_away': home_away,
+            'stadium': stadium,
+        }
+    return None
 
 
 @app.route('/game')
@@ -88,68 +108,17 @@ def get_game():
     if not date_str:
         return jsonify({'error': 'date 필요'}), 400
     try:
-        datetime.strptime(date_str, '%Y-%m-%d')
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
     except:
         return jsonify({'error': '날짜 형식 오류'}), 400
 
-    # 다음 스포츠 API 시도
     try:
-        data = fetch_daum_sports(date_str)
-        games = data.get('schedule', data.get('games', data.get('data', [])))
-        if isinstance(data, dict):
-            # 여러 키 시도
-            for key in ['schedule', 'games', 'data', 'result', 'list']:
-                if key in data and data[key]:
-                    games = data[key]
-                    break
-
-        for g in (games if isinstance(games, list) else []):
-            home_code = g.get('homeTeamCode', g.get('hometeamcode', ''))
-            away_code = g.get('awayTeamCode', g.get('awayteamcode', ''))
-            home_name = code_to_name(home_code) or g.get('homeTeamName', g.get('hometeamname', ''))
-            away_name = code_to_name(away_code) or g.get('awayTeamName', g.get('awayteamname', ''))
-
-            is_hanwha_home = '한화' in home_name
-            is_hanwha_away = '한화' in away_name
-            if not (is_hanwha_home or is_hanwha_away):
-                continue
-
-            stadium = g.get('stadium', g.get('stadiumName', g.get('stadiumname', '')))
-            if HOME_STADIUM in stadium:
-                home_away = '홈'
-            elif any(s in stadium for s in AWAY_STADIUMS):
-                home_away = '원정'
-            else:
-                home_away = '홈' if is_hanwha_home else '원정'
-
-            is_away = home_away == '원정'
-            opponent = home_name if is_away else away_name
-            h_score = g.get('homeTeamScore', g.get('hometeamscore'))
-            a_score = g.get('awayTeamScore', g.get('awayteamscore'))
-            hanwha_score = a_score if is_away else h_score
-            opp_score = h_score if is_away else a_score
-
-            result = None
-            if hanwha_score is not None and opp_score is not None:
-                try:
-                    hs, os = int(hanwha_score), int(opp_score)
-                    result = '승' if hs > os else ('패' if hs < os else '무')
-                except:
-                    pass
-
-            return jsonify({
-                'found': True,
-                'date': date_str,
-                'opponent': opponent,
-                'hanwha_score': hanwha_score,
-                'opponent_score': opp_score,
-                'result': result,
-                'home_away': home_away,
-                'stadium': stadium,
-            })
-
+        data = fetch_naver_kbo(dt.year, dt.month)
+        result = find_hanwha(data, date_str)
+        if result:
+            return jsonify(result)
     except Exception as e:
-        pass
+        return jsonify({'found': False, 'error': str(e)}), 500
 
     return jsonify({'found': False, 'date': date_str})
 
@@ -157,23 +126,26 @@ def get_game():
 @app.route('/debug')
 def debug():
     date_str = request.args.get('date', '2026-03-28').strip()
-    results = {}
-
-    # 다음 스포츠 API 테스트
     try:
-        data = fetch_daum_sports(date_str)
-        results['daum_raw'] = str(data)[:2000]
-    except Exception as e:
-        results['daum_error'] = str(e)
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
+        data = fetch_naver_kbo(dt.year, dt.month)
 
-    # 네이버 API 테스트
-    try:
-        data2 = fetch_naver_schedule(date_str)
-        results['naver_raw'] = str(data2)[:2000]
-    except Exception as e:
-        results['naver_error'] = str(e)
+        # 게임 목록 추출
+        games = []
+        result = data.get('result', data)
+        games = result.get('games', []) if isinstance(result, dict) else []
 
-    return jsonify(results)
+        hanwha_games = [g for g in games if '한화' in g.get('homeTeamName','') or '한화' in g.get('awayTeamName','') or g.get('homeTeamCode')=='HH' or g.get('awayTeamCode')=='HH']
+
+        return jsonify({
+            'requested_date': date_str,
+            'total_games': len(games),
+            'hanwha_games': hanwha_games,
+            'sample': games[:3],
+            'raw_keys': list(data.keys()) if isinstance(data, dict) else str(type(data)),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 
 @app.route('/health')
