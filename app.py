@@ -29,8 +29,7 @@ def fetch_naver_kbo(year, month):
     }
     res = requests.get(url, params=params, headers=headers, timeout=15)
     data = res.json()
-    result = data.get('result', {})
-    return result.get('games', [])
+    return data.get('result', {}).get('games', [])
 
 
 def find_hanwha(games, date_str):
@@ -45,72 +44,66 @@ def find_hanwha(games, date_str):
         reversed_ha = g.get('reversedHomeAway', False)
         stadium = g.get('stadium', '')
 
-        is_hanwha_home = home_code == 'HH' or '한화' in home_name
-        is_hanwha_away = away_code == 'HH' or '한화' in away_name
+        is_hanwha_home_field = home_code == 'HH' or '한화' in home_name
+        is_hanwha_away_field = away_code == 'HH' or '한화' in away_name
 
-        if not (is_hanwha_home or is_hanwha_away):
+        if not (is_hanwha_home_field or is_hanwha_away_field):
             continue
 
-        # 구장으로 홈/원정 판단 (가장 정확)
+        # reversedHomeAway=True면 homeTeam이 실제로는 원정팀
+        # 즉 실제 홈팀은 awayTeam, 실제 원정팀은 homeTeam
+        if reversed_ha:
+            real_home_name = away_name
+            real_away_name = home_name
+            real_home_code = away_code
+            real_away_code = home_code
+            real_home_score = g.get('awayTeamScore')
+            real_away_score = g.get('homeTeamScore')
+        else:
+            real_home_name = home_name
+            real_away_name = away_name
+            real_home_code = home_code
+            real_away_code = away_code
+            real_home_score = g.get('homeTeamScore')
+            real_away_score = g.get('awayTeamScore')
+
+        # 실제 홈/원정 기준으로 한화 위치 파악
+        is_hanwha_real_home = real_home_code == 'HH' or '한화' in real_home_name
+        is_hanwha_real_away = real_away_code == 'HH' or '한화' in real_away_name
+
+        # 구장으로 최종 확인
         if HOME_STADIUM in stadium:
             home_away = '홈'
         elif any(s in stadium for s in AWAY_STADIUMS):
             home_away = '원정'
         else:
-            # reversedHomeAway 고려
-            if reversed_ha:
-                home_away = '원정' if is_hanwha_home else '홈'
-            else:
-                home_away = '홈' if is_hanwha_home else '원정'
-
-        is_away = home_away == '원정'
-
-        # reversedHomeAway가 true면 실제 팀 역할이 반대
-        if reversed_ha:
-            actual_home_name = away_name
-            actual_away_name = home_name
-            actual_home_score = g.get('awayTeamScore')
-            actual_away_score = g.get('homeTeamScore')
-        else:
-            actual_home_name = home_name
-            actual_away_name = away_name
-            actual_home_score = g.get('homeTeamScore')
-            actual_away_score = g.get('awayTeamScore')
+            home_away = '홈' if is_hanwha_real_home else '원정'
 
         if home_away == '홈':
-            opponent = actual_away_name
-            hanwha_score = actual_home_score
-            opp_score = actual_away_score
+            opponent = real_away_name
+            hanwha_score = real_home_score
+            opp_score = real_away_score
         else:
-            opponent = actual_home_name
-            hanwha_score = actual_away_score
-            opp_score = actual_home_score
+            opponent = real_home_name
+            hanwha_score = real_away_score
+            opp_score = real_home_score
 
-        # 결과
+        # 승패 계산
         result = None
         winner = g.get('winner', '')
-        status = g.get('statusCode', '')
-        if status == 'RESULT':
-            if winner == 'HOME':
-                result = '홈' if not reversed_ha else '원정'
-                # 한화가 이긴 건지 확인
-                if home_away == '홈' and winner == 'HOME':
-                    result = '승'
-                elif home_away == '홈' and winner == 'AWAY':
-                    result = '패'
-                elif home_away == '원정' and winner == 'AWAY':
-                    result = '승'
-                elif home_away == '원정' and winner == 'HOME':
-                    result = '패'
-                elif winner == 'DRAW':
-                    result = '무'
-            elif winner == 'AWAY':
-                if home_away == '원정':
-                    result = '승'
-                else:
-                    result = '패'
-            elif winner == 'DRAW':
+        if g.get('statusCode') == 'RESULT':
+            if winner == 'DRAW':
                 result = '무'
+            else:
+                # winner는 원래 homeTeam/awayTeam 기준 (reversed 적용 전)
+                # reversed=True면 winner HOME = 실제 원정팀 승리
+                if reversed_ha:
+                    hanwha_won = (winner == 'AWAY' and is_hanwha_home_field) or \
+                                 (winner == 'HOME' and is_hanwha_away_field)
+                else:
+                    hanwha_won = (winner == 'HOME' and is_hanwha_home_field) or \
+                                 (winner == 'AWAY' and is_hanwha_away_field)
+                result = '승' if hanwha_won else '패'
 
         return {
             'found': True,
@@ -152,12 +145,10 @@ def debug():
     try:
         dt = datetime.strptime(date_str, '%Y-%m-%d')
         games = fetch_naver_kbo(dt.year, dt.month)
-        hanwha = [g for g in games if g.get('homeTeamCode') == 'HH' or g.get('awayTeamCode') == 'HH']
         result = find_hanwha(games, date_str)
         return jsonify({
             'requested_date': date_str,
             'total_games': len(games),
-            'hanwha_game_count': len(hanwha),
             'result': result,
         })
     except Exception as e:
