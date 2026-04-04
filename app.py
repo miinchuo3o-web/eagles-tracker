@@ -1,18 +1,15 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import requests
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 from datetime import datetime
 import re
 
 app = Flask(__name__)
 CORS(app)
 
-# 대전 = 한화 홈, 나머지 = 원정
 HOME_STADIUM = '대전'
 AWAY_STADIUMS = ['잠실', '문학', '대구', '창원', '수원', '사직', '고척', '광주']
 
-# 팀명 정규화
 TEAM_MAP = {
     'HH': '한화', '이글스': '한화',
     'OB': '두산', 'DB': '두산', '베어스': '두산',
@@ -33,51 +30,38 @@ def normalize_team(name):
             return v
     return name
 
-def get_hidden(soup, field):
-    el = soup.find('input', {'id': field})
-    return el['value'] if el else ''
+def fetch_schedule_playwright(year, month):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.set_extra_http_headers({
+            'Accept-Language': 'ko-KR,ko;q=0.9'
+        })
 
-def fetch_schedule(year, month):
-    url = "https://www.koreabaseball.com/Schedule/Schedule.aspx"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Referer": "https://www.koreabaseball.com/",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "ko-KR,ko;q=0.9",
-    }
+        page.goto('https://www.koreabaseball.com/Schedule/Schedule.aspx', timeout=30000)
+        page.wait_for_load_state('networkidle')
 
-    session = requests.Session()
-    res = session.get(url, headers=headers, timeout=20)
-    soup = BeautifulSoup(res.text, 'html.parser')
+        # 연도 선택
+        page.select_option('#ddlYear', str(year))
+        page.wait_for_load_state('networkidle')
 
-    # 연도 선택
-    res2 = session.post(url, headers=headers, timeout=20, data={
-        '__VIEWSTATE': get_hidden(soup, '__VIEWSTATE'),
-        '__VIEWSTATEGENERATOR': get_hidden(soup, '__VIEWSTATEGENERATOR'),
-        '__EVENTVALIDATION': get_hidden(soup, '__EVENTVALIDATION'),
-        '__EVENTTARGET': 'ddlYear',
-        '__EVENTARGUMENT': '',
-        'ddlYear': str(year),
-        'ddlMonth': str(month).zfill(2),
-        'ddlSeries': '0,9,6',
-    })
-    soup2 = BeautifulSoup(res2.text, 'html.parser')
+        # 월 선택
+        page.select_option('#ddlMonth', str(month).zfill(2))
+        page.wait_for_load_state('networkidle')
 
-    # 월 선택
-    res3 = session.post(url, headers=headers, timeout=20, data={
-        '__VIEWSTATE': get_hidden(soup2, '__VIEWSTATE'),
-        '__VIEWSTATEGENERATOR': get_hidden(soup2, '__VIEWSTATEGENERATOR'),
-        '__EVENTVALIDATION': get_hidden(soup2, '__EVENTVALIDATION'),
-        '__EVENTTARGET': 'ddlMonth',
-        '__EVENTARGUMENT': '',
-        'ddlYear': str(year),
-        'ddlMonth': str(month).zfill(2),
-        'ddlSeries': '0,9,6',
-    })
-    return BeautifulSoup(res3.text, 'html.parser'), res3.text
+        # 시리즈 선택 (전체)
+        page.select_option('#ddlSeries', '0,9,6')
+        page.wait_for_load_state('networkidle')
 
-def parse_games(soup, year):
+        html = page.content()
+        browser.close()
+        return html
+
+def parse_games(html, year):
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, 'html.parser')
     games = []
+
     table = soup.find('table', {'id': 'tblScheduleList'})
     if not table:
         return games
@@ -93,7 +77,6 @@ def parse_games(soup, year):
         if not play:
             continue
 
-        # 날짜
         day = row.find('td', class_='day')
         if day:
             nums = re.findall(r'\d+', day.get_text())
@@ -103,7 +86,6 @@ def parse_games(soup, year):
         if not current_date:
             continue
 
-        # 팀명 (em 없는 span)
         teams = []
         for sp in play.find_all('span'):
             if sp.find('em'):
@@ -112,7 +94,6 @@ def parse_games(soup, year):
             if t and not t.isdigit() and len(t) <= 8:
                 teams.append(normalize_team(t))
 
-        # 점수
         scores = []
         for em in play.find_all('em'):
             for sp in em.find_all('span'):
@@ -121,10 +102,9 @@ def parse_games(soup, year):
                 except:
                     pass
 
-        # 구장명 — class 없는 td들 중에서 찾기
+        # 구장명
         stadium = ''
-        plain_tds = row.find_all('td', class_=False)
-        for td in plain_tds:
+        for td in row.find_all('td'):
             txt = td.get_text(strip=True)
             if any(s in txt for s in ['잠실', '문학', '대구', '창원', '대전', '수원', '사직', '고척', '광주']):
                 stadium = txt
@@ -147,23 +127,19 @@ def find_hanwha(games, date_str):
     for g in games:
         if g['date'] != date_str:
             continue
-        away, home = g['away'], g['home']
-        is_hanwha = '한화' in away or '한화' in home
-        if not is_hanwha:
+        if '한화' not in g['away'] and '한화' not in g['home']:
             continue
 
-        # 구장으로 홈/원정 판단
         stadium = g.get('stadium', '')
         if HOME_STADIUM in stadium:
             home_away = '홈'
         elif any(s in stadium for s in AWAY_STADIUMS):
             home_away = '원정'
         else:
-            # 구장 모르면 팀 순서로 판단 (away팀이 한화면 원정)
-            home_away = '원정' if '한화' in away else '홈'
+            home_away = '원정' if '한화' in g['away'] else '홈'
 
         is_away = home_away == '원정'
-        opponent = home if is_away else away
+        opponent = g['home'] if is_away else g['away']
         h = g['away_score'] if is_away else g['home_score']
         o = g['home_score'] if is_away else g['away_score']
 
@@ -195,8 +171,8 @@ def get_game():
         return jsonify({'error': '날짜 형식 오류'}), 400
 
     try:
-        soup, _ = fetch_schedule(dt.year, dt.month)
-        games = parse_games(soup, dt.year)
+        html = fetch_schedule_playwright(dt.year, dt.month)
+        games = parse_games(html, dt.year)
     except Exception as e:
         return jsonify({'found': False, 'error': str(e)}), 500
 
@@ -211,27 +187,14 @@ def debug():
     date_str = request.args.get('date', '2026-03-28').strip()
     try:
         dt = datetime.strptime(date_str, '%Y-%m-%d')
-        soup, raw_html = fetch_schedule(dt.year, dt.month)
-
-        table = soup.find('table', {'id': 'tblScheduleList'})
-        ddl_year = soup.find('select', {'id': 'ddlYear'})
-        ddl_month = soup.find('select', {'id': 'ddlMonth'})
-
-        selected_year = ddl_year.find('option', selected=True).get_text() if ddl_year and ddl_year.find('option', selected=True) else None
-        selected_month = ddl_month.find('option', selected=True).get_text() if ddl_month and ddl_month.find('option', selected=True) else None
-
-        games = parse_games(soup, dt.year)
-        hanwha_games = [g for g in games if '한화' in g['away'] or '한화' in g['home']]
-
+        html = fetch_schedule_playwright(dt.year, dt.month)
+        games = parse_games(html, dt.year)
+        hanwha = [g for g in games if '한화' in g['away'] or '한화' in g['home']]
         return jsonify({
             'requested_date': date_str,
-            'has_table': table is not None,
-            'selected_year': selected_year,
-            'selected_month': selected_month,
             'total_games': len(games),
-            'hanwha_games': hanwha_games,
-            'sample_games': games[:5],
-            'html_snippet': raw_html[raw_html.find('tblScheduleList'):raw_html.find('tblScheduleList')+500] if 'tblScheduleList' in raw_html else 'TABLE NOT FOUND',
+            'hanwha_games': hanwha,
+            'sample': games[:5],
         })
     except Exception as e:
         return jsonify({'error': str(e)})
