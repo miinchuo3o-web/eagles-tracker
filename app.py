@@ -41,69 +41,55 @@ def find_hanwha(games, date_str):
         away_code = g.get('awayTeamCode', '')
         home_name = g.get('homeTeamName', '')
         away_name = g.get('awayTeamName', '')
-        reversed_ha = g.get('reversedHomeAway', False)
+        home_score = g.get('homeTeamScore')
+        away_score = g.get('awayTeamScore')
         stadium = g.get('stadium', '')
+        winner = g.get('winner', '')
+        status = g.get('statusCode', '')
 
-        is_hanwha_home_field = home_code == 'HH' or '한화' in home_name
-        is_hanwha_away_field = away_code == 'HH' or '한화' in away_name
+        is_hanwha_home = home_code == 'HH' or '한화' in home_name
+        is_hanwha_away = away_code == 'HH' or '한화' in away_name
 
-        if not (is_hanwha_home_field or is_hanwha_away_field):
+        if not (is_hanwha_home or is_hanwha_away):
             continue
 
-        # reversedHomeAway=True면 homeTeam이 실제로는 원정팀
-        # 즉 실제 홈팀은 awayTeam, 실제 원정팀은 homeTeam
-        if reversed_ha:
-            real_home_name = away_name
-            real_away_name = home_name
-            real_home_code = away_code
-            real_away_code = home_code
-            real_home_score = g.get('awayTeamScore')
-            real_away_score = g.get('homeTeamScore')
-        else:
-            real_home_name = home_name
-            real_away_name = away_name
-            real_home_code = home_code
-            real_away_code = away_code
-            real_home_score = g.get('homeTeamScore')
-            real_away_score = g.get('awayTeamScore')
-
-        # 실제 홈/원정 기준으로 한화 위치 파악
-        is_hanwha_real_home = real_home_code == 'HH' or '한화' in real_home_name
-        is_hanwha_real_away = real_away_code == 'HH' or '한화' in real_away_name
-
-        # 구장으로 최종 확인
+        # 구장으로 홈/원정 판단 (reversedHomeAway 무시)
         if HOME_STADIUM in stadium:
             home_away = '홈'
         elif any(s in stadium for s in AWAY_STADIUMS):
             home_away = '원정'
         else:
-            home_away = '홈' if is_hanwha_real_home else '원정'
+            home_away = '홈' if is_hanwha_home else '원정'
 
-        if home_away == '홈':
-            opponent = real_away_name
-            hanwha_score = real_home_score
-            opp_score = real_away_score
-        else:
-            opponent = real_home_name
-            hanwha_score = real_away_score
-            opp_score = real_home_score
-
-        # 승패 계산
-        result = None
-        winner = g.get('winner', '')
-        if g.get('statusCode') == 'RESULT':
-            if winner == 'DRAW':
-                result = '무'
-            else:
-                # winner는 원래 homeTeam/awayTeam 기준 (reversed 적용 전)
-                # reversed=True면 winner HOME = 실제 원정팀 승리
-                if reversed_ha:
-                    hanwha_won = (winner == 'AWAY' and is_hanwha_home_field) or \
-                                 (winner == 'HOME' and is_hanwha_away_field)
+        # 한화가 homeTeam 자리에 있을 때
+        if is_hanwha_home:
+            hanwha_score = home_score
+            opp_score = away_score
+            opponent = away_name
+            # 승패: winner HOME이면 한화 승
+            if status == 'RESULT':
+                if winner == 'DRAW':
+                    result = '무'
+                elif winner == 'HOME':
+                    result = '승'
                 else:
-                    hanwha_won = (winner == 'HOME' and is_hanwha_home_field) or \
-                                 (winner == 'AWAY' and is_hanwha_away_field)
-                result = '승' if hanwha_won else '패'
+                    result = '패'
+            else:
+                result = None
+        # 한화가 awayTeam 자리에 있을 때
+        else:
+            hanwha_score = away_score
+            opp_score = home_score
+            opponent = home_name
+            if status == 'RESULT':
+                if winner == 'DRAW':
+                    result = '무'
+                elif winner == 'AWAY':
+                    result = '승'
+                else:
+                    result = '패'
+            else:
+                result = None
 
         return {
             'found': True,
