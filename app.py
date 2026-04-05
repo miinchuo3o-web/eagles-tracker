@@ -287,3 +287,62 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
+
+# ── 롯데 경기 조회 ───────────────────────────────────
+LOTTE_HOME = '사직'
+LOTTE_AWAY = ['잠실', '문학', '대구', '창원', '대전', '수원', '고척', '광주', '마산']
+
+def find_team(games, date_str, team_code, home_stadium, away_stadiums):
+    for g in games:
+        if g.get('gameDate', '')[:10] != date_str:
+            continue
+        home_code = g.get('homeTeamCode', '')
+        away_code = g.get('awayTeamCode', '')
+        home_name = g.get('homeTeamName', '')
+        away_name = g.get('awayTeamName', '')
+        home_score = g.get('homeTeamScore')
+        away_score = g.get('awayTeamScore')
+        stadium = g.get('stadium', '')
+        winner = g.get('winner', '')
+        status = g.get('statusCode', '')
+
+        is_home = home_code == team_code
+        is_away = away_code == team_code
+        if not (is_home or is_away):
+            continue
+
+        if home_stadium in stadium:
+            home_away = '홈'
+        elif any(s in stadium for s in away_stadiums):
+            home_away = '원정'
+        else:
+            home_away = '홈' if is_home else '원정'
+
+        if is_home:
+            team_score, opp_score, opponent = home_score, away_score, away_name
+            result = None if status != 'RESULT' else ('무' if winner=='DRAW' else ('승' if winner=='HOME' else '패'))
+        else:
+            team_score, opp_score, opponent = away_score, home_score, home_name
+            result = None if status != 'RESULT' else ('무' if winner=='DRAW' else ('승' if winner=='AWAY' else '패'))
+
+        return {'found': True, 'date': date_str, 'opponent': opponent,
+                'team_score': team_score, 'opponent_score': opp_score,
+                'result': result, 'home_away': home_away, 'stadium': stadium}
+    return None
+
+@app.route('/game/lotte')
+def get_game_lotte():
+    date_str = request.args.get('date', '').strip()
+    if not date_str:
+        return jsonify({'error': 'date 필요'}), 400
+    try:
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
+    except:
+        return jsonify({'error': '날짜 형식 오류'}), 400
+    try:
+        games = fetch_naver_kbo(dt.year, dt.month)
+        result = find_team(games, date_str, 'LT', LOTTE_HOME, LOTTE_AWAY)
+        return jsonify(result if result else {'found': False, 'date': date_str})
+    except Exception as e:
+        return jsonify({'found': False, 'error': str(e)}), 500
