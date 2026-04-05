@@ -26,7 +26,7 @@ TEAMS = {
     'WO': {'name': '키움', 'full': '키움 히어로즈', 'home': '고척', 'color': '#820024'},
     'HT': {'name': 'KIA',  'full': 'KIA 타이거즈',  'home': '광주', 'color': '#ea0029'},
 }
-ALL_STADIUMS = ['잠실', '문학', '대구', '창원', '대전', '수원', '사직', '고척', '광주', '마산', '사직']
+ALL_STADIUMS = ['잠실', '문학', '대구', '창원', '대전', '수원', '사직', '고척', '광주', '마산']
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -35,12 +35,13 @@ def get_db():
 def init_db():
     conn = get_db()
     cur = conn.cursor()
+
+    # 테이블 생성
     cur.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
-            favorite_team TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE TABLE IF NOT EXISTS sessions (
@@ -51,7 +52,6 @@ def init_db():
         CREATE TABLE IF NOT EXISTS records (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id),
-            team TEXT NOT NULL DEFAULT 'HH',
             date TEXT NOT NULL,
             opponent TEXT NOT NULL,
             team_score INTEGER,
@@ -61,19 +61,39 @@ def init_db():
             stadium TEXT,
             people INTEGER DEFAULT 1,
             cost INTEGER DEFAULT 0,
-            mood TEXT DEFAULT '',
-            memo TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT NOW(),
-            UNIQUE(user_id, team, date)
+            created_at TIMESTAMP DEFAULT NOW()
         );
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS favorite_team TEXT DEFAULT '';
-        ALTER TABLE records ADD COLUMN IF NOT EXISTS team TEXT NOT NULL DEFAULT 'HH';
-        ALTER TABLE records ADD COLUMN IF NOT EXISTS mood TEXT DEFAULT '';
-        ALTER TABLE records ADD COLUMN IF NOT EXISTS memo TEXT DEFAULT '';
-        ALTER TABLE records DROP CONSTRAINT IF EXISTS records_user_id_date_key;
-        ALTER TABLE records ADD CONSTRAINT IF NOT EXISTS records_user_team_date_key UNIQUE(user_id, team, date);
     ''')
-    conn.commit()
+
+    # 컬럼 개별 추가 (이미 있으면 무시)
+    columns = [
+        ('users', 'favorite_team', 'TEXT DEFAULT \'\''),
+        ('records', 'team', 'TEXT DEFAULT \'HH\''),
+        ('records', 'mood', 'TEXT DEFAULT \'\''),
+        ('records', 'memo', 'TEXT DEFAULT \'\''),
+        ('records', 'team_score', 'INTEGER'),
+        ('records', 'hanwha_score', 'INTEGER'),
+    ]
+    for table, col, coltype in columns:
+        try:
+            cur.execute(f'ALTER TABLE {table} ADD COLUMN {col} {coltype}')
+            conn.commit()
+        except Exception:
+            conn.rollback()
+
+    # UNIQUE 제약 업데이트
+    try:
+        cur.execute('ALTER TABLE records DROP CONSTRAINT IF EXISTS records_user_id_date_key')
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
+    try:
+        cur.execute('ALTER TABLE records ADD CONSTRAINT records_user_team_date_key UNIQUE(user_id, team, date)')
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
     cur.close()
     conn.close()
 
@@ -119,8 +139,10 @@ def register():
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('INSERT INTO users (username, password_hash, favorite_team) VALUES (%s,%s,%s) RETURNING id',
-                    (username, hash_pw(password), favorite_team))
+        cur.execute(
+            'INSERT INTO users (username, password_hash, favorite_team) VALUES (%s,%s,%s) RETURNING id',
+            (username, hash_pw(password), favorite_team)
+        )
         user_id = cur.fetchone()['id']
         token = secrets.token_hex(32)
         cur.execute('INSERT INTO sessions (token, user_id) VALUES (%s,%s)', (token, user_id))
@@ -153,7 +175,7 @@ def login():
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({'token': token, 'username': username, 'favorite_team': user['favorite_team'] or ''})
+        return jsonify({'token': token, 'username': username, 'favorite_team': user.get('favorite_team') or ''})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -222,9 +244,9 @@ def add_record():
         cur.execute('''INSERT INTO records
             (user_id, team, date, opponent, team_score, opponent_score, result, home_away, stadium, people, cost, mood, memo)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
-            (user_id, d.get('team','HH'), d['date'], d['opponent'],
+            (user_id, d.get('team', 'HH'), d['date'], d['opponent'],
              d.get('team_score'), d.get('opponent_score'),
-             d.get('result'), d.get('home_away',''), d.get('stadium',''),
+             d.get('result'), d.get('home_away', ''), d.get('stadium', ''),
              d.get('people', 1), d.get('cost', 0),
              d.get('mood', ''), d.get('memo', '')))
         conn.commit()
@@ -276,7 +298,6 @@ def fetch_naver_kbo(year, month):
 def find_team_game(games, date_str, team_code):
     team_info = TEAMS.get(team_code, {})
     home_stadium = team_info.get('home', '')
-
     for g in games:
         if g.get('gameDate', '')[:10] != date_str:
             continue
@@ -297,8 +318,8 @@ def find_team_game(games, date_str, team_code):
 
         if home_stadium and home_stadium in stadium:
             home_away = '홈'
-        elif any(s in stadium for s in ALL_STADIUMS) and (not home_stadium or home_stadium not in stadium):
-            home_away = '원정'
+        elif any(s in stadium for s in ALL_STADIUMS):
+            home_away = '홈' if is_home else '원정'
         else:
             home_away = '홈' if is_home else '원정'
 
@@ -323,16 +344,12 @@ def get_game(team_code):
         return jsonify({'error': 'date 필요'}), 400
     try:
         dt = datetime.strptime(date_str, '%Y-%m-%d')
-    except:
-        return jsonify({'error': '날짜 형식 오류'}), 400
-    try:
         games = fetch_naver_kbo(dt.year, dt.month)
         result = find_team_game(games, date_str, team_code)
         return jsonify(result if result else {'found': False, 'date': date_str})
     except Exception as e:
         return jsonify({'found': False, 'error': str(e)}), 500
 
-# 기존 /game 엔드포인트 호환성 유지
 @app.route('/game')
 def get_game_legacy():
     date_str = request.args.get('date', '').strip()
