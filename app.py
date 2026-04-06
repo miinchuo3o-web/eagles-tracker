@@ -8,24 +8,30 @@ import os
 import secrets
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import cloudinary
-import cloudinary.uploader
+try:
+    import cloudinary
+    import cloudinary.uploader
+    CLOUDINARY_AVAILABLE = True
+except ImportError:
+    CLOUDINARY_AVAILABLE = False
+    print("Cloudinary not available")
 
 app = Flask(__name__)
 CORS(app)
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
-try:
-    cloudinary.config(
-        cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
-        api_key=os.environ.get('CLOUDINARY_API_KEY', ''),
-        api_secret=os.environ.get('CLOUDINARY_API_SECRET', ''),
-    )
-    CLOUDINARY_ENABLED = bool(os.environ.get('CLOUDINARY_CLOUD_NAME'))
-except Exception as e:
-    print(f"Cloudinary config error: {e}")
-    CLOUDINARY_ENABLED = False
+CLOUDINARY_ENABLED = False
+if CLOUDINARY_AVAILABLE:
+    try:
+        cloudinary.config(
+            cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+            api_key=os.environ.get('CLOUDINARY_API_KEY', ''),
+            api_secret=os.environ.get('CLOUDINARY_API_SECRET', ''),
+        )
+        CLOUDINARY_ENABLED = bool(os.environ.get('CLOUDINARY_CLOUD_NAME'))
+    except Exception as e:
+        print(f"Cloudinary config error: {e}")
 
 TEAMS = {
     'HH': {'name': '한화', 'full': '한화 이글스',    'home': '대전', 'color': '#f97316'},
@@ -322,7 +328,8 @@ def delete_record(record_id):
         photos = cur.fetchall()
         for p in photos:
             try:
-                cloudinary.uploader.destroy(p['public_id'])
+                if CLOUDINARY_ENABLED:
+                    cloudinary.uploader.destroy(p['public_id'])
             except:
                 pass
         cur.execute('DELETE FROM records WHERE id=%s AND user_id=%s', (record_id, user_id))
@@ -426,7 +433,8 @@ def delete_photo(photo_id):
         if not photo:
             return jsonify({'error': '사진을 찾을 수 없어요'}), 404
         try:
-            cloudinary.uploader.destroy(photo['public_id'])
+            if CLOUDINARY_ENABLED:
+                cloudinary.uploader.destroy(photo['public_id'])
         except:
             pass
         cur.execute('DELETE FROM photos WHERE id=%s', (photo_id,))
