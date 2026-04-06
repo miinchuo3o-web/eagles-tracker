@@ -16,11 +16,16 @@ CORS(app)
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
-cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
-    api_key=os.environ.get('CLOUDINARY_API_KEY', ''),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET', ''),
-)
+try:
+    cloudinary.config(
+        cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+        api_key=os.environ.get('CLOUDINARY_API_KEY', ''),
+        api_secret=os.environ.get('CLOUDINARY_API_SECRET', ''),
+    )
+    CLOUDINARY_ENABLED = bool(os.environ.get('CLOUDINARY_CLOUD_NAME'))
+except Exception as e:
+    print(f"Cloudinary config error: {e}")
+    CLOUDINARY_ENABLED = False
 
 TEAMS = {
     'HH': {'name': '한화', 'full': '한화 이글스',    'home': '대전', 'color': '#f97316'},
@@ -355,6 +360,8 @@ def upload_photo():
             return jsonify({'error': '사진은 최대 3장까지 등록할 수 있어요'}), 400
 
     try:
+        if not CLOUDINARY_ENABLED:
+            return jsonify({'error': 'Cloudinary 설정이 없어요. Railway Variables를 확인해주세요'}), 500
         upload_result = cloudinary.uploader.upload(
             file,
             folder=f'kbo_tracker/{user_id}',
