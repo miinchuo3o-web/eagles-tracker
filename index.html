@@ -164,7 +164,21 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .msg-err{color:var(--red);font-size:13px;}
 .msg-loading{color:var(--text-sub);font-size:13px;}
 
-/* 사진 업로드 */
+/* 비번 변경 모달 */
+.pw-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:998;align-items:center;justify-content:center;padding:20px;}
+.pw-modal.open{display:flex;}
+.pw-card{background:white;border-radius:var(--radius);padding:1.5rem;width:100%;max-width:340px;}
+.pw-title{font-size:16px;font-weight:700;margin-bottom:16px;}
+.pw-field{margin-bottom:12px;}
+.pw-field label{display:block;font-size:12px;color:var(--text-sub);margin-bottom:4px;font-weight:500;}
+.pw-field input{width:100%;padding:10px 12px;font-size:14px;border:1px solid var(--border);border-radius:var(--radius-sm);outline:none;}
+.pw-field input:focus{border-color:var(--primary);}
+.pw-btns{display:flex;gap:8px;margin-top:4px;}
+.pw-btns button{flex:1;padding:10px;font-size:14px;font-weight:600;border-radius:var(--radius-sm);cursor:pointer;}
+.btn-cancel{background:white;border:1px solid var(--border);color:var(--text-sub);}
+.btn-confirm-pw{background:var(--primary);border:none;color:white;}
+.pw-err{color:var(--red);font-size:12px;margin-top:6px;min-height:16px;}
+.pw-ok{color:var(--green);font-size:12px;margin-top:6px;}
 .photo-upload-area{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 .photo-preview{width:80px;height:80px;border-radius:var(--radius-sm);object-fit:cover;border:1px solid var(--border);}
 .photo-add-btn{width:80px;height:80px;border-radius:var(--radius-sm);border:2px dashed var(--border);background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:var(--text-hint);gap:2px;}
@@ -233,6 +247,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
     <p id="headerUser"></p>
     <div class="header-right">
       <button class="btn-sm" onclick="showTeamChange()">팀변경</button>
+      <button class="btn-sm" onclick="showPwModal()">설정</button>
       <button class="btn-sm" onclick="logout()">로그아웃</button>
     </div>
   </div>
@@ -414,6 +429,31 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
     <div class="card">
       <div class="section-title">기록 목록</div>
       <div class="records-list" id="recordsList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 비밀번호 변경 모달 -->
+<div class="pw-modal" id="pwModal">
+  <div class="pw-card">
+    <div class="pw-title">🔒 비밀번호 변경</div>
+    <div class="pw-field">
+      <label>현재 비밀번호</label>
+      <input type="password" id="currentPw" placeholder="현재 비밀번호 입력"/>
+    </div>
+    <div class="pw-field">
+      <label>새 비밀번호</label>
+      <input type="password" id="newPw" placeholder="새 비밀번호 (4자 이상)"/>
+    </div>
+    <div class="pw-field">
+      <label>새 비밀번호 확인</label>
+      <input type="password" id="newPwConfirm" placeholder="새 비밀번호 다시 입력"
+        onkeydown="if(event.key==='Enter') submitPwChange()"/>
+    </div>
+    <div class="pw-err" id="pwErr"></div>
+    <div class="pw-btns">
+      <button class="btn-cancel" onclick="closePwModal()">취소</button>
+      <button class="btn-confirm-pw" onclick="submitPwChange()">변경하기</button>
     </div>
   </div>
 </div>
@@ -806,6 +846,42 @@ function openPhotoModal(url, info) {
   document.getElementById('photoModal').classList.add('open');
 }
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
+
+// ── 비밀번호 변경 ──────────────────────────────────
+function showPwModal() {
+  document.getElementById('currentPw').value='';
+  document.getElementById('newPw').value='';
+  document.getElementById('newPwConfirm').value='';
+  document.getElementById('pwErr').textContent='';
+  document.getElementById('pwModal').classList.add('open');
+}
+function closePwModal() {
+  document.getElementById('pwModal').classList.remove('open');
+}
+async function submitPwChange() {
+  const current = document.getElementById('currentPw').value;
+  const newPw = document.getElementById('newPw').value;
+  const confirm = document.getElementById('newPwConfirm').value;
+  const errEl = document.getElementById('pwErr');
+  errEl.textContent = '';
+  if (!current || !newPw || !confirm) { errEl.textContent = '모든 항목을 입력해주세요'; return; }
+  if (newPw.length < 4) { errEl.textContent = '새 비밀번호는 4자 이상이어야 해요'; return; }
+  if (newPw !== confirm) { errEl.textContent = '새 비밀번호가 일치하지 않아요'; return; }
+  try {
+    const res = await fetch(`${SERVER_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ current_password: current, new_password: newPw })
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || '변경 실패'; return; }
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = '✓ 비밀번호가 변경되었어요!';
+    setTimeout(() => { closePwModal(); errEl.style.color = 'var(--red)'; }, 1500);
+  } catch(e) {
+    errEl.textContent = '서버 연결 오류';
+  }
+}
 
 function renderOverview(){
   const total=records.length,wins=records.filter(r=>r.result==='승').length,loses=records.filter(r=>r.result==='패').length;

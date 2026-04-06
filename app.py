@@ -204,8 +204,35 @@ def logout():
         pass
     return jsonify({'ok': True})
 
-@app.route('/auth/team', methods=['POST'])
-def update_team():
+@app.route('/auth/change-password', methods=['POST'])
+def change_password():
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    data = request.json or {}
+    current_pw = data.get('current_password', '')
+    new_pw = data.get('new_password', '')
+    if not current_pw or not new_pw:
+        return jsonify({'error': '현재 비밀번호와 새 비밀번호를 입력해주세요'}), 400
+    if len(new_pw) < 4:
+        return jsonify({'error': '새 비밀번호는 4자 이상이어야 해요'}), 400
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT id FROM users WHERE id=%s AND password_hash=%s', (user_id, hash_pw(current_pw)))
+        if not cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({'error': '현재 비밀번호가 틀렸어요'}), 401
+        cur.execute('UPDATE users SET password_hash=%s WHERE id=%s', (hash_pw(new_pw), user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/auth/team', methods=['POST'])def update_team():
     user_id = auth_required()
     if not user_id:
         return jsonify({'error': '로그인이 필요해요'}), 401
