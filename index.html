@@ -163,6 +163,35 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .msg-ok{color:var(--green);font-size:13px;}
 .msg-err{color:var(--red);font-size:13px;}
 .msg-loading{color:var(--text-sub);font-size:13px;}
+
+/* 사진 업로드 */
+.photo-upload-area{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.photo-preview{width:80px;height:80px;border-radius:var(--radius-sm);object-fit:cover;border:1px solid var(--border);}
+.photo-add-btn{width:80px;height:80px;border-radius:var(--radius-sm);border:2px dashed var(--border);background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:var(--text-hint);gap:2px;}
+.photo-add-btn span{font-size:10px;}
+.photo-add-btn:hover{border-color:var(--primary);color:var(--primary);}
+.photo-wrap{position:relative;display:inline-block;}
+.photo-del{position:absolute;top:-6px;right:-6px;background:var(--red);color:white;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
+
+/* 사진첩 */
+.gallery-filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.gf-btn{padding:6px 12px;font-size:12px;border-radius:20px;border:1px solid var(--border);background:white;color:var(--text-sub);cursor:pointer;font-weight:500;}
+.gf-btn.active{background:var(--primary);color:white;border-color:var(--primary);}
+.gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+.gallery-img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-sm);cursor:pointer;}
+.gallery-img:active{opacity:.8;}
+
+/* 사진 전체화면 */
+.photo-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:999;align-items:center;justify-content:center;flex-direction:column;}
+.photo-modal.open{display:flex;}
+.photo-modal img{max-width:100%;max-height:85vh;border-radius:var(--radius-sm);object-fit:contain;}
+.photo-modal-info{color:white;font-size:13px;margin-top:12px;text-align:center;opacity:.8;}
+.photo-modal-close{position:absolute;top:16px;right:16px;color:white;font-size:28px;cursor:pointer;background:none;border:none;line-height:1;}
+
+/* 기록 사진 썸네일 */
+.rec-photos{display:flex;gap:4px;margin-top:6px;}
+.rec-photo-thumb{width:56px;height:56px;border-radius:6px;object-fit:cover;cursor:pointer;}
+
 </style>
 </head>
 <body>
@@ -266,6 +295,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
               <label class="label" style="font-size:10px">한 줄 메모</label>
               <textarea id="editMemo" placeholder="오늘 직관 어땠어요?"></textarea>
             </div>
+            <div class="fgroup" style="margin-top:8px">
+              <label class="label" style="font-size:10px">사진 (최대 3장)</label>
+              <div class="photo-upload-area" id="autoPhotoArea">
+                <label class="photo-add-btn" for="autoPhotoInput">📷<span>추가</span></label>
+                <input type="file" id="autoPhotoInput" accept="image/*" multiple style="display:none" onchange="previewPhotos(this,'autoPhotoArea')"/>
+              </div>
+            </div>
           </div>
         </div>
         <button class="btn-add" id="addAutoBtn" disabled onclick="addAutoRecord()">직관 기록 추가</button>
@@ -311,6 +347,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
           <label class="label" style="font-size:10px">한 줄 메모</label>
           <textarea id="manMemo" placeholder="오늘 직관 어땠어요?"></textarea>
         </div>
+        <div class="fgroup" style="margin-bottom:10px">
+          <label class="label" style="font-size:10px">사진 (최대 3장)</label>
+          <div class="photo-upload-area" id="manPhotoArea">
+            <label class="photo-add-btn" for="manPhotoInput">📷<span>추가</span></label>
+            <input type="file" id="manPhotoInput" accept="image/*" multiple style="display:none" onchange="previewPhotos(this,'manPhotoArea')"/>
+          </div>
+        </div>
         <button class="btn-add" onclick="addManualRecord()">직관 기록 추가</button>
       </div>
     </div>
@@ -323,6 +366,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
         <button class="stat-nav-btn" onclick="switchStatNav('day')">요일별</button>
         <button class="stat-nav-btn" onclick="switchStatNav('money')">지출</button>
         <button class="stat-nav-btn" onclick="switchStatNav('milestone')">마일스톤</button>
+        <button class="stat-nav-btn" onclick="switchStatNav('gallery')">📷 사진첩</button>
       </div>
 
       <!-- 전체 통계 -->
@@ -351,6 +395,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
       <div class="stat-section" id="stat-milestone">
         <div class="milestone-list" id="milestoneList"></div>
       </div>
+
+      <!-- 사진첩 -->
+      <div class="stat-section" id="stat-gallery">
+        <div class="gallery-filters">
+          <button class="gf-btn active" onclick="filterGallery('')">전체</button>
+          <button class="gf-btn" onclick="filterGallery('승')">🎉 이긴 날</button>
+          <button class="gf-btn" onclick="filterGallery('패')">😭 진 날</button>
+          <button class="gf-btn" onclick="filterGallery('무')">🤝 무승부</button>
+        </div>
+        <div class="gallery-grid" id="galleryGrid">
+          <div class="empty" style="grid-column:span 3">사진을 추가하면 여기에 모여요 📷</div>
+        </div>
+      </div>
     </div>
 
     <!-- 기록 목록 -->
@@ -361,13 +418,20 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
   </div>
 </div>
 
+<!-- 사진 전체화면 모달 -->
+<div class="photo-modal" id="photoModal" onclick="closePhotoModal()">
+  <button class="photo-modal-close" onclick="closePhotoModal()">×</button>
+  <img id="photoModalImg" src="" alt=""/>
+  <div class="photo-modal-info" id="photoModalInfo"></div>
+</div>
+
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
-  'LT': {name:'롯데', full:'롯데 자이언츠',  emoji:'🦁', color:'#e31837', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','한화','키움']},
-  'LG': {name:'LG',   full:'LG 트윈스',     emoji:'🐻', color:'#c60c30', opponents:['삼성','KIA','두산','SSG','NC','KT','롯데','한화','키움']},
+  'LT': {name:'롯데', full:'롯데 자이언츠',  emoji:'🔱', color:'#e31837', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','한화','키움']},
+  'LG': {name:'LG',   full:'LG 트윈스',     emoji:'👬', color:'#c60c30', opponents:['삼성','KIA','두산','SSG','NC','KT','롯데','한화','키움']},
   'OB': {name:'두산', full:'두산 베어스',    emoji:'🐻', color:'#131230', opponents:['삼성','KIA','LG','SSG','NC','KT','롯데','한화','키움']},
   'SS': {name:'삼성', full:'삼성 라이온즈',  emoji:'🦁', color:'#1428a0', opponents:['KIA','LG','두산','SSG','NC','KT','롯데','한화','키움']},
   'SK': {name:'SSG',  full:'SSG 랜더스',    emoji:'⚡', color:'#ce0e2d', opponents:['삼성','KIA','LG','두산','NC','KT','롯데','한화','키움']},
@@ -532,9 +596,10 @@ function switchTab(t){
 }
 function switchStatNav(t){
   currentStatNav=t;
-  document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',['overview','vs','day','money','milestone'][i]===t));
+  document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',['overview','vs','day','money','milestone','gallery'][i]===t));
   document.querySelectorAll('.stat-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('stat-'+t).classList.add('active');
+  if(t==='gallery') loadGallery();
 }
 function setEditResult(v){editResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('et-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
 function setManResult(v){manResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('mt-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
@@ -590,11 +655,14 @@ async function addAutoRecord() {
     opponent_score:isNaN(os)?foundGame.opponent_score:os,
     result:res,home_away:ha,stadium:foundGame.stadium,people,cost,mood:editMood,memo});
   if(r.ok){
+    const data = await r.json();
+    await uploadPhotos(data.record_id, res, 'auto');
     await loadRecords();
     document.getElementById('addAutoBtn').disabled=true;
     document.getElementById('editSection').style.display='none';
     document.getElementById('resultBox').innerHTML='<span class="msg-ok">✓ 기록이 추가되었어요!</span>';
     document.getElementById('editMemo').value='';
+    resetPhotoArea('autoPhotoArea');
     editMood='';foundGame=null;
     document.querySelectorAll('#editSection .mood-btn').forEach(b=>b.classList.remove('selected'));
     checkMilestones();
@@ -613,10 +681,13 @@ async function addManualRecord() {
   if(!date||!opp||isNaN(hs)||isNaN(os)||!manResult){alert('모든 항목을 입력해주세요');return;}
   const r=await saveRecord({date,opponent:opp,team_score:hs,opponent_score:os,result:manResult,home_away:ha,stadium:'',people,cost,mood:manMood,memo});
   if(r.ok){
+    const data = await r.json();
+    await uploadPhotos(data.record_id, manResult, 'man');
     await loadRecords();
     ['manDate','manHS','manOS','manPeople','manCost'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('manOpp').value='';document.getElementById('manHA').value='';
     document.getElementById('manMemo').value='';
+    resetPhotoArea('manPhotoArea');
     setManResult(null);manResult=null;manMood='';
     document.querySelectorAll('#tab-manual .mood-btn').forEach(b=>b.classList.remove('selected'));
     checkMilestones();
@@ -663,6 +734,78 @@ function showMilestoneToast(msg) {
 function fmt(n){return(n===null||n===undefined||isNaN(n))?'-':n.toLocaleString('ko-KR')+'원';}
 
 function renderAll(){renderOverview();renderVs();renderDay();renderMoney();renderMilestones();renderList();}
+
+// ── 사진 ─────────────────────────────────────────────
+let pendingPhotos = { auto: [], man: [] };
+
+function previewPhotos(input, areaId) {
+  const mode = areaId === 'autoPhotoArea' ? 'auto' : 'man';
+  const area = document.getElementById(areaId);
+  const files = Array.from(input.files);
+  const canAdd = 3 - pendingPhotos[mode].length;
+  if (canAdd <= 0) { alert('사진은 최대 3장까지 추가할 수 있어요'); return; }
+  files.slice(0, canAdd).forEach(file => {
+    pendingPhotos[mode].push(file);
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wrap = document.createElement('div');
+      wrap.className = 'photo-wrap';
+      const img = document.createElement('img');
+      img.className = 'photo-preview'; img.src = e.target.result;
+      const del = document.createElement('button');
+      del.className = 'photo-del'; del.textContent = '×';
+      del.onclick = () => { const idx = pendingPhotos[mode].indexOf(file); if(idx>-1) pendingPhotos[mode].splice(idx,1); wrap.remove(); };
+      wrap.appendChild(img); wrap.appendChild(del);
+      area.insertBefore(wrap, area.querySelector('label'));
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+async function uploadPhotos(recordId, result, mode) {
+  for (const file of pendingPhotos[mode]) {
+    const form = new FormData();
+    form.append('photo', file);
+    form.append('record_id', recordId);
+    form.append('team', favoriteTeam);
+    form.append('result', result || '');
+    try { await fetch(`${SERVER_URL}/photos/upload`, { method:'POST', headers:{'Authorization':`Bearer ${token}`}, body:form }); } catch(e) {}
+  }
+  pendingPhotos[mode] = [];
+}
+
+function resetPhotoArea(areaId) {
+  document.getElementById(areaId).querySelectorAll('.photo-wrap').forEach(w=>w.remove());
+}
+
+let galleryFilter = '';
+async function loadGallery() {
+  try {
+    const res = await fetch(`${SERVER_URL}/photos?team=${favoriteTeam}${galleryFilter?'&result='+galleryFilter:''}`, {headers:{'Authorization':`Bearer ${token}`}});
+    renderGallery(await res.json());
+  } catch(e) {}
+}
+
+function filterGallery(result) {
+  galleryFilter = result;
+  document.querySelectorAll('.gf-btn').forEach((b,i)=>b.classList.toggle('active',['','승','패','무'][i]===result));
+  loadGallery();
+}
+
+function renderGallery(photos) {
+  const grid = document.getElementById('galleryGrid');
+  if (!photos.length) { grid.innerHTML='<div class="empty" style="grid-column:span 3">사진이 없어요 📷</div>'; return; }
+  grid.innerHTML = photos.map(p=>`<img class="gallery-img" src="${p.url}" loading="lazy"
+    onclick="openPhotoModal('${p.url}','${(p.date||'')} vs ${(p.opponent||'')} ${(p.result||'')}')" alt="직관 사진"/>`).join('');
+}
+
+function openPhotoModal(url, info) {
+  document.getElementById('photoModalImg').src = url;
+  document.getElementById('photoModalInfo').textContent = info;
+  document.getElementById('photoModal').classList.add('open');
+}
+function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
 
 function renderOverview(){
   const total=records.length,wins=records.filter(r=>r.result==='승').length,loses=records.filter(r=>r.result==='패').length;
@@ -788,6 +931,7 @@ function renderList(){
         ${pp?`<span>1인당 ${pp.toLocaleString('ko-KR')}원</span>`:''}
       </div>`:''}
       ${r.memo?`<div class="rec-row3">"${r.memo}"</div>`:''}
+      ${r.photos&&r.photos.length?`<div class="rec-photos">${r.photos.map(p=>`<img class="rec-photo-thumb" src="${p.url}" loading="lazy" onclick="openPhotoModal('${p.url}','${r.date} vs ${r.opponent}')" alt=""/>`).join('')}</div>`:''}
     </div>`;
   }).join('');
 }

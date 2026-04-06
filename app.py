@@ -8,19 +8,27 @@ import os
 import secrets
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import cloudinary
+import cloudinary.uploader
 
 app = Flask(__name__)
 CORS(app)
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+    api_key=os.environ.get('CLOUDINARY_API_KEY', ''),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET', ''),
+)
+
 TEAMS = {
-    'HH': {'name': '한화', 'full': '한화 이글스', 'home': '대전', 'color': '#f97316'},
-    'LT': {'name': '롯데', 'full': '롯데 자이언츠', 'home': '사직', 'color': '#e31837'},
-    'LG': {'name': 'LG',   'full': 'LG 트윈스',    'home': '잠실', 'color': '#c60c30'},
-    'OB': {'name': '두산', 'full': '두산 베어스',   'home': '잠실', 'color': '#131230'},
-    'SS': {'name': '삼성', 'full': '삼성 라이온즈', 'home': '대구', 'color': '#1428a0'},
-    'SK': {'name': 'SSG',  'full': 'SSG 랜더스',   'home': '문학', 'color': '#ce0e2d'},
+    'HH': {'name': '한화', 'full': '한화 이글스',    'home': '대전', 'color': '#f97316'},
+    'LT': {'name': '롯데', 'full': '롯데 자이언츠',  'home': '사직', 'color': '#e31837'},
+    'LG': {'name': 'LG',   'full': 'LG 트윈스',     'home': '잠실', 'color': '#c60c30'},
+    'OB': {'name': '두산', 'full': '두산 베어스',    'home': '잠실', 'color': '#131230'},
+    'SS': {'name': '삼성', 'full': '삼성 라이온즈',  'home': '대구', 'color': '#1428a0'},
+    'SK': {'name': 'SSG',  'full': 'SSG 랜더스',    'home': '문학', 'color': '#ce0e2d'},
     'NC': {'name': 'NC',   'full': 'NC 다이노스',   'home': '창원', 'color': '#071d49'},
     'KT': {'name': 'KT',   'full': 'KT 위즈',      'home': '수원', 'color': '#000000'},
     'WO': {'name': '키움', 'full': '키움 히어로즈', 'home': '고척', 'color': '#820024'},
@@ -35,8 +43,6 @@ def get_db():
 def init_db():
     conn = get_db()
     cur = conn.cursor()
-
-    # 테이블 생성
     cur.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -63,16 +69,25 @@ def init_db():
             cost INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT NOW()
         );
+        CREATE TABLE IF NOT EXISTS photos (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            record_id INTEGER REFERENCES records(id) ON DELETE CASCADE,
+            team TEXT DEFAULT 'HH',
+            result TEXT DEFAULT '',
+            url TEXT NOT NULL,
+            public_id TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        );
     ''')
+    conn.commit()
 
-    # 컬럼 개별 추가 (이미 있으면 무시)
     columns = [
-        ('users', 'favorite_team', 'TEXT DEFAULT \'\''),
-        ('records', 'team', 'TEXT DEFAULT \'HH\''),
-        ('records', 'mood', 'TEXT DEFAULT \'\''),
-        ('records', 'memo', 'TEXT DEFAULT \'\''),
+        ('users', 'favorite_team', "TEXT DEFAULT ''"),
+        ('records', 'team', "TEXT DEFAULT 'HH'"),
+        ('records', 'mood', "TEXT DEFAULT ''"),
+        ('records', 'memo', "TEXT DEFAULT ''"),
         ('records', 'team_score', 'INTEGER'),
-        ('records', 'hanwha_score', 'INTEGER'),
     ]
     for table, col, coltype in columns:
         try:
@@ -81,13 +96,11 @@ def init_db():
         except Exception:
             conn.rollback()
 
-    # UNIQUE 제약 업데이트
     try:
         cur.execute('ALTER TABLE records DROP CONSTRAINT IF EXISTS records_user_id_date_key')
         conn.commit()
     except Exception:
         conn.rollback()
-
     try:
         cur.execute('ALTER TABLE records ADD CONSTRAINT records_user_team_date_key UNIQUE(user_id, team, date)')
         conn.commit()
@@ -139,10 +152,8 @@ def register():
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            'INSERT INTO users (username, password_hash, favorite_team) VALUES (%s,%s,%s) RETURNING id',
-            (username, hash_pw(password), favorite_team)
-        )
+        cur.execute('INSERT INTO users (username, password_hash, favorite_team) VALUES (%s,%s,%s) RETURNING id',
+                    (username, hash_pw(password), favorite_team))
         user_id = cur.fetchone()['id']
         token = secrets.token_hex(32)
         cur.execute('INSERT INTO sessions (token, user_id) VALUES (%s,%s)', (token, user_id))
@@ -226,9 +237,16 @@ def get_records():
         else:
             cur.execute('SELECT * FROM records WHERE user_id=%s ORDER BY date DESC', (user_id,))
         rows = cur.fetchall()
+        records = [dict(r) for r in rows]
+
+        # 각 기록에 사진 붙이기
+        for rec in records:
+            cur.execute('SELECT id, url FROM photos WHERE record_id=%s ORDER BY created_at', (rec['id'],))
+            rec['photos'] = [dict(p) for p in cur.fetchall()]
+
         cur.close()
         conn.close()
-        return jsonify([dict(r) for r in rows])
+        return jsonify(records)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -243,16 +261,17 @@ def add_record():
         cur = conn.cursor()
         cur.execute('''INSERT INTO records
             (user_id, team, date, opponent, team_score, opponent_score, result, home_away, stadium, people, cost, mood, memo)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id''',
             (user_id, d.get('team', 'HH'), d['date'], d['opponent'],
              d.get('team_score'), d.get('opponent_score'),
              d.get('result'), d.get('home_away', ''), d.get('stadium', ''),
              d.get('people', 1), d.get('cost', 0),
              d.get('mood', ''), d.get('memo', '')))
+        record_id = cur.fetchone()['id']
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({'ok': True})
+        return jsonify({'ok': True, 'record_id': record_id})
     except psycopg2.errors.UniqueViolation:
         return jsonify({'error': '해당 날짜 기록이 이미 있어요'}), 409
     except Exception as e:
@@ -266,7 +285,117 @@ def delete_record(record_id):
     try:
         conn = get_db()
         cur = conn.cursor()
+        # 연결된 사진 Cloudinary에서도 삭제
+        cur.execute('SELECT public_id FROM photos WHERE record_id=%s AND user_id=%s', (record_id, user_id))
+        photos = cur.fetchall()
+        for p in photos:
+            try:
+                cloudinary.uploader.destroy(p['public_id'])
+            except:
+                pass
         cur.execute('DELETE FROM records WHERE id=%s AND user_id=%s', (record_id, user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ── 사진 ───────────────────────────────────────────
+@app.route('/photos/upload', methods=['POST'])
+def upload_photo():
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+
+    record_id = request.form.get('record_id')
+    team = request.form.get('team', 'HH')
+    result = request.form.get('result', '')
+    file = request.files.get('photo')
+
+    if not file:
+        return jsonify({'error': '사진 파일이 없어요'}), 400
+
+    # 기록당 사진 3장 제한
+    if record_id:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT COUNT(*) as cnt FROM photos WHERE record_id=%s', (record_id,))
+        cnt = cur.fetchone()['cnt']
+        cur.close()
+        conn.close()
+        if cnt >= 3:
+            return jsonify({'error': '사진은 최대 3장까지 등록할 수 있어요'}), 400
+
+    try:
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=f'kbo_tracker/{user_id}',
+            transformation=[{'width': 1080, 'height': 1080, 'crop': 'limit', 'quality': 'auto'}]
+        )
+        url = upload_result['secure_url']
+        public_id = upload_result['public_id']
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            'INSERT INTO photos (user_id, record_id, team, result, url, public_id) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id',
+            (user_id, record_id or None, team, result, url, public_id)
+        )
+        photo_id = cur.fetchone()['id']
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True, 'id': photo_id, 'url': url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/photos', methods=['GET'])
+def get_photos():
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+
+    team = request.args.get('team', '')
+    result_filter = request.args.get('result', '')  # 승/패/무 필터
+
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        query = 'SELECT p.*, r.date, r.opponent FROM photos p LEFT JOIN records r ON p.record_id=r.id WHERE p.user_id=%s'
+        params = [user_id]
+        if team:
+            query += ' AND p.team=%s'
+            params.append(team)
+        if result_filter:
+            query += ' AND p.result=%s'
+            params.append(result_filter)
+        query += ' ORDER BY p.created_at DESC'
+        cur.execute(query, params)
+        photos = [dict(p) for p in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return jsonify(photos)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/photos/<int:photo_id>', methods=['DELETE'])
+def delete_photo(photo_id):
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT public_id FROM photos WHERE id=%s AND user_id=%s', (photo_id, user_id))
+        photo = cur.fetchone()
+        if not photo:
+            return jsonify({'error': '사진을 찾을 수 없어요'}), 404
+        try:
+            cloudinary.uploader.destroy(photo['public_id'])
+        except:
+            pass
+        cur.execute('DELETE FROM photos WHERE id=%s', (photo_id,))
         conn.commit()
         cur.close()
         conn.close()
@@ -318,8 +447,6 @@ def find_team_game(games, date_str, team_code):
 
         if home_stadium and home_stadium in stadium:
             home_away = '홈'
-        elif any(s in stadium for s in ALL_STADIUMS):
-            home_away = '홈' if is_home else '원정'
         else:
             home_away = '홈' if is_home else '원정'
 
