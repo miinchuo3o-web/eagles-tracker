@@ -243,7 +243,8 @@ def change_password():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/auth/team', methods=['POST'])def update_team():
+@app.route('/auth/team', methods=['POST'])
+def update_team():
     user_id = auth_required()
     if not user_id:
         return jsonify({'error': '로그인이 필요해요'}), 401
