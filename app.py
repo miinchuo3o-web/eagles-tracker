@@ -90,6 +90,16 @@ def init_db():
             public_id TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT NOW()
         );
+        CREATE TABLE IF NOT EXISTS favorite_players (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            player_id INTEGER NOT NULL,
+            player_name TEXT NOT NULL,
+            is_pitcher BOOLEAN DEFAULT FALSE,
+            team_name TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(user_id, player_id)
+        );
     ''')
     conn.commit()
 
@@ -536,6 +546,176 @@ def get_game_legacy():
 @app.route('/teams')
 def get_teams():
     return jsonify(TEAMS)
+
+# ── 선수 검색 & 스탯 ────────────────────────────────
+KBO_BASE = 'https://www.koreabaseball.com'
+KBO_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+    'Referer': KBO_BASE,
+}
+
+@app.route('/player/search')
+def player_search():
+    name = request.args.get('name', '').strip()
+    if not name:
+        return jsonify({'error': '선수명 필요'}), 400
+    try:
+        res = requests.post(
+            f'{KBO_BASE}/ws/Controls.asmx/GetSearchPlayer',
+            headers={**KBO_HEADERS, 'Content-Type': 'application/x-www-form-urlencoded'},
+            data={'name': name},
+            timeout=10
+        )
+        data = res.json()
+        players = []
+        for p in data.get('now', []):
+            players.append({
+                'id': p['P_ID'],
+                'name': p['P_NM'],
+                'team': p['T_NM'],
+                'team_id': p['T_ID'],
+                'position': p['POS_NO'],
+                'type': p['P_TYPE'],
+                'is_pitcher': p['POS_NO'] == '투수',
+                'link': p['P_LINK'],
+            })
+        return jsonify({'players': players})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/player/stats/<int:player_id>')
+def player_stats(player_id):
+    is_pitcher = request.args.get('pitcher', 'false').lower() == 'true'
+    try:
+        from bs4 import BeautifulSoup
+        if is_pitcher:
+            url = f'{KBO_BASE}/Record/Player/PitcherDetail/Basic.aspx?playerId={player_id}'
+        else:
+            url = f'{KBO_BASE}/Record/Player/HitterDetail/Basic.aspx?playerId={player_id}'
+
+        res = requests.get(url, headers=KBO_HEADERS, timeout=10)
+        soup = BeautifulSoup(res.text, 'html.parser')
+
+        tables = soup.find_all('table')
+        recent_games = []
+
+        # 최근 경기 테이블 파싱 (투수: 테이블[2], 타자: 테이블[2])
+        if len(tables) > 2:
+            rows = tables[2].find_all('tr')
+            for row in rows:
+                cells = [td.get_text(strip=True) for td in row.find_all('td')]
+                if not cells or len(cells) < 3:
+                    continue
+                date_str = cells[0]
+                # MM.DD 형식 확인
+                if len(date_str) == 5 and date_str[2] == '.':
+                    if is_pitcher:
+                        recent_games.append({
+                            'date': date_str,
+                            'opponent': cells[1],
+                            'result': cells[2],
+                            'era': cells[3] if len(cells) > 3 else '',
+                            'ip': cells[5] if len(cells) > 5 else '',
+                            'h': cells[6] if len(cells) > 6 else '',
+                            'bb': cells[8] if len(cells) > 8 else '',
+                            'so': cells[10] if len(cells) > 10 else '',
+                            'r': cells[11] if len(cells) > 11 else '',
+                            'er': cells[12] if len(cells) > 12 else '',
+                        })
+                    else:
+                        recent_games.append({
+                            'date': date_str,
+                            'opponent': cells[1],
+                            'avg': cells[2] if len(cells) > 2 else '',
+                            'pa': cells[3] if len(cells) > 3 else '',
+                            'ab': cells[4] if len(cells) > 4 else '',
+                            'r': cells[5] if len(cells) > 5 else '',
+                            'h': cells[6] if len(cells) > 6 else '',
+                            'hr': cells[9] if len(cells) > 9 else '',
+                            'rbi': cells[11] if len(cells) > 11 else '',
+                            'bb': cells[13] if len(cells) > 13 else '',
+                            'so': cells[15] if len(cells) > 15 else '',
+                        })
+
+        # 시즌 기록 (테이블[0])
+        season = {}
+        if len(tables) > 0:
+            rows = tables[0].find_all('tr')
+            for row in rows:
+                cells = [td.get_text(strip=True) for td in row.find_all('td')]
+                if cells and len(cells) > 5:
+                    if is_pitcher:
+                        season = {'era': cells[1], 'g': cells[2], 'w': cells[5], 'l': cells[6], 'ip': cells[12]}
+                    else:
+                        season = {'avg': cells[1], 'g': cells[2], 'h': cells[7], 'hr': cells[10], 'rbi': cells[11]}
+
+        return jsonify({
+            'player_id': player_id,
+            'is_pitcher': is_pitcher,
+            'season': season,
+            'recent_games': recent_games,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ── 찜 선수 ─────────────────────────────────────────
+@app.route('/favorite-players', methods=['GET'])
+def get_favorite_players():
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM favorite_players WHERE user_id=%s ORDER BY created_at', (user_id,))
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/favorite-players', methods=['POST'])
+def add_favorite_player():
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    d = request.json or {}
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        # 최대 2명 제한
+        cur.execute('SELECT COUNT(*) as cnt FROM favorite_players WHERE user_id=%s', (user_id,))
+        cnt = cur.fetchone()['cnt']
+        if cnt >= 2:
+            cur.close()
+            conn.close()
+            return jsonify({'error': '찜 선수는 최대 2명까지 가능해요'}), 400
+        cur.execute('''INSERT INTO favorite_players (user_id, player_id, player_name, is_pitcher, team_name)
+                    VALUES (%s,%s,%s,%s,%s) ON CONFLICT (user_id, player_id) DO NOTHING''',
+                    (user_id, d['player_id'], d['player_name'], d['is_pitcher'], d.get('team_name','')))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/favorite-players/<int:player_id>', methods=['DELETE'])
+def remove_favorite_player(player_id):
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('DELETE FROM favorite_players WHERE user_id=%s AND player_id=%s', (user_id, player_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/health')
 def health():

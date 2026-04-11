@@ -180,6 +180,36 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .pw-err{color:var(--red);font-size:12px;margin-top:6px;min-height:16px;}
 .pw-ok{color:var(--green);font-size:12px;margin-top:6px;}
 .photo-upload-area{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+
+/* 선수 덕질 */
+.player-search-box{background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;}
+.player-search-result-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:white;border-radius:var(--radius-sm);border:1px solid var(--border);margin-top:6px;}
+.psr-info{flex:1;}
+.psr-name{font-size:14px;font-weight:600;}
+.psr-sub{font-size:11px;color:var(--text-sub);margin-top:2px;}
+.btn-fav-add{padding:6px 12px;font-size:12px;font-weight:600;border-radius:99px;border:none;background:var(--primary);color:white;cursor:pointer;white-space:nowrap;}
+.fav-player-card{background:var(--bg);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+.fav-player-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.fav-player-name{flex:1;font-size:16px;font-weight:700;}
+.fav-player-sub{font-size:12px;color:var(--text-sub);}
+.btn-fav-del{color:var(--text-hint);font-size:18px;cursor:pointer;background:none;border:none;}
+.jinx-box{background:white;border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;border:1px solid var(--border);}
+.jinx-title{font-size:12px;font-weight:600;color:var(--text-sub);margin-bottom:8px;}
+.jinx-row{display:flex;gap:8px;}
+.jinx-item{flex:1;text-align:center;padding:8px 4px;border-radius:var(--radius-sm);}
+.jinx-item.go{background:var(--green-light);}
+.jinx-item.nogo{background:var(--red-light);}
+.jinx-label{font-size:10px;color:var(--text-sub);margin-bottom:3px;}
+.jinx-val{font-size:15px;font-weight:700;}
+.jinx-item.go .jinx-val{color:var(--green);}
+.jinx-item.nogo .jinx-val{color:var(--red);}
+.jinx-verdict{text-align:center;font-size:13px;font-weight:600;margin-top:8px;padding:6px;border-radius:var(--radius-sm);background:var(--primary-light);color:var(--primary);}
+.recent-game-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:white;border-radius:var(--radius-sm);font-size:12px;margin-bottom:4px;}
+.rg-date{color:var(--text-sub);min-width:36px;}
+.rg-opp{color:var(--text-sub);min-width:28px;}
+.rg-stat{flex:1;color:var(--text);}
+.rg-go{font-size:10px;padding:2px 6px;border-radius:99px;background:var(--primary-light);color:var(--primary);font-weight:600;}
+.player-loading{text-align:center;color:var(--text-hint);font-size:13px;padding:16px;}
 .photo-preview{width:80px;height:80px;border-radius:var(--radius-sm);object-fit:cover;border:1px solid var(--border);}
 .photo-add-btn{width:80px;height:80px;border-radius:var(--radius-sm);border:2px dashed var(--border);background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:var(--text-hint);gap:2px;}
 .photo-add-btn span{font-size:10px;}
@@ -382,6 +412,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
         <button class="stat-nav-btn" onclick="switchStatNav('money')">지출</button>
         <button class="stat-nav-btn" onclick="switchStatNav('milestone')">마일스톤</button>
         <button class="stat-nav-btn" onclick="switchStatNav('gallery')">📷 사진첩</button>
+        <button class="stat-nav-btn" onclick="switchStatNav('player')">⭐ 선수</button>
       </div>
 
       <!-- 전체 통계 -->
@@ -423,9 +454,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
           <div class="empty" style="grid-column:span 3">사진을 추가하면 여기에 모여요 📷</div>
         </div>
       </div>
-    </div>
-
-    <!-- 기록 목록 -->
+      <!-- ⭐ 선수 덕질 -->
+      <div class="stat-section" id="stat-player">
+        <div class="player-search-box">
+          <div class="label" style="margin-bottom:6px">선수 찜하기 (최대 2명)</div>
+          <div class="date-search-row">
+            <input type="text" id="playerSearchInput" placeholder="선수 이름 검색 (예: 김서현)" onkeydown="if(event.key==='Enter') searchPlayer()"/>
+            <button class="btn-search" onclick="searchPlayer()">검색</button>
+          </div>
+          <div id="playerSearchResult" style="margin-top:8px"></div>
+        </div>
+        <div id="favPlayerList" style="margin-top:14px"></div>
+      </div>
+    
     <div class="card">
       <div class="section-title">기록 목록</div>
       <div class="records-list" id="recordsList"></div>
@@ -466,7 +507,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -636,10 +677,11 @@ function switchTab(t){
 }
 function switchStatNav(t){
   currentStatNav=t;
-  document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',['overview','vs','day','money','milestone','gallery'][i]===t));
+  document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',['overview','vs','day','money','milestone','gallery','player'][i]===t));
   document.querySelectorAll('.stat-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('stat-'+t).classList.add('active');
   if(t==='gallery') loadGallery();
+  if(t==='player') loadFavPlayers();
 }
 function setEditResult(v){editResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('et-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
 function setManResult(v){manResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('mt-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
@@ -846,6 +888,189 @@ function openPhotoModal(url, info) {
   document.getElementById('photoModal').classList.add('open');
 }
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
+
+// ── 선수 덕질 ──────────────────────────────────────
+let favPlayers = [];
+
+async function loadFavPlayers() {
+  try {
+    const res = await fetch(`${SERVER_URL}/favorite-players`, {headers:{'Authorization':`Bearer ${token}`}});
+    favPlayers = await res.json();
+    renderFavPlayers();
+  } catch(e) {}
+}
+
+async function searchPlayer() {
+  const name = document.getElementById('playerSearchInput').value.trim();
+  if (!name) return;
+  const resultEl = document.getElementById('playerSearchResult');
+  resultEl.innerHTML = '<div class="player-loading">검색 중...</div>';
+  try {
+    const res = await fetch(`${SERVER_URL}/player/search?name=${encodeURIComponent(name)}`);
+    const data = await res.json();
+    if (!data.players || !data.players.length) {
+      resultEl.innerHTML = '<div class="player-loading">선수를 찾지 못했어요</div>';
+      return;
+    }
+    resultEl.innerHTML = data.players.map(p => `
+      <div class="player-search-result-item">
+        <div class="psr-info">
+          <div class="psr-name">${p.name} ${p.is_pitcher ? '⚾투수' : '🏏타자'}</div>
+          <div class="psr-sub">${p.team} · ${p.position} · ${p.type}</div>
+        </div>
+        <button class="btn-fav-add" onclick="addFavPlayer(${p.id},'${p.name}',${p.is_pitcher},'${p.team}')">찜하기 ⭐</button>
+      </div>`).join('');
+  } catch(e) {
+    resultEl.innerHTML = '<div class="player-loading">오류가 발생했어요</div>';
+  }
+}
+
+async function addFavPlayer(id, name, isPitcher, team) {
+  if (favPlayers.length >= 2) { alert('찜 선수는 최대 2명까지예요!'); return; }
+  if (favPlayers.find(p => p.player_id === id)) { alert('이미 찜한 선수예요!'); return; }
+  const res = await fetch(`${SERVER_URL}/favorite-players`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+    body: JSON.stringify({player_id: id, player_name: name, is_pitcher: isPitcher, team_name: team})
+  });
+  if (res.ok) {
+    document.getElementById('playerSearchResult').innerHTML = '';
+    document.getElementById('playerSearchInput').value = '';
+    await loadFavPlayers();
+  } else {
+    const d = await res.json();
+    alert(d.error || '추가 실패');
+  }
+}
+
+async function removeFavPlayer(playerId) {
+  if (!confirm('찜을 취소할까요?')) return;
+  await fetch(`${SERVER_URL}/favorite-players/${playerId}`, {
+    method: 'DELETE', headers: {'Authorization':`Bearer ${token}`}
+  });
+  await loadFavPlayers();
+}
+
+async function renderFavPlayers() {
+  const el = document.getElementById('favPlayerList');
+  if (!favPlayers.length) {
+    el.innerHTML = '<div class="empty">위에서 선수를 검색해서 찜해보세요! ⭐<br>최대 2명, 투수/타자 모두 가능해요</div>';
+    return;
+  }
+  el.innerHTML = '<div class="player-loading">선수 기록 불러오는 중...</div>';
+
+  let html = '';
+  for (const fp of favPlayers) {
+    const stats = await fetchPlayerStats(fp.player_id, fp.is_pitcher);
+    const jinx = calcJinx(fp.player_id, fp.is_pitcher, stats);
+    html += renderFavCard(fp, stats, jinx);
+  }
+  el.innerHTML = html;
+}
+
+async function fetchPlayerStats(playerId, isPitcher) {
+  try {
+    const res = await fetch(`${SERVER_URL}/player/stats/${playerId}?pitcher=${isPitcher}`, {
+      headers: {'Authorization':`Bearer ${token}`}
+    });
+    return await res.json();
+  } catch(e) { return null; }
+}
+
+function calcJinx(playerId, isPitcher, stats) {
+  if (!stats || !stats.recent_games) return null;
+  const goGames = [], nogoGames = [];
+  const currentYear = new Date().getFullYear();
+
+  stats.recent_games.forEach(g => {
+    if (!g.date || g.date.length !== 5) return;
+    const [m, d] = g.date.split('.');
+    const fullDate = `${currentYear}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    const wentToGame = records.some(r => r.date === fullDate);
+    if (wentToGame) goGames.push(g);
+    else nogoGames.push(g);
+  });
+
+  if (isPitcher) {
+    const goERA = goGames.length ? avg(goGames.map(g=>parseFloat(g.era)||0)) : null;
+    const nogoERA = nogoGames.length ? avg(nogoGames.map(g=>parseFloat(g.era)||0)) : null;
+    return { go: goGames, nogo: nogoGames, goStat: goERA?.toFixed(2), nogoStat: nogoERA?.toFixed(2), statLabel: 'ERA', better: goERA !== null && nogoERA !== null ? (goERA < nogoERA ? 'go' : 'nogo') : null };
+  } else {
+    const goAVG = goGames.length ? avg(goGames.map(g=>parseFloat(g.avg)||0)) : null;
+    const nogoAVG = nogoGames.length ? avg(nogoGames.map(g=>parseFloat(g.avg)||0)) : null;
+    return { go: goGames, nogo: nogoGames, goStat: goAVG?.toFixed(3), nogoStat: nogoAVG?.toFixed(3), statLabel: '타율', better: goAVG !== null && nogoAVG !== null ? (goAVG > nogoAVG ? 'go' : 'nogo') : null };
+  }
+}
+
+function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
+function renderFavCard(fp, stats, jinx) {
+  const season = stats?.season || {};
+  let seasonText = '';
+  if (fp.is_pitcher) {
+    seasonText = `ERA ${season.era||'-'} / ${season.g||0}경기 / ${season.w||0}승${season.l||0}패`;
+  } else {
+    seasonText = `타율 ${season.avg||'-'} / ${season.g||0}경기 / ${season.h||0}안타 / ${season.hr||0}홈런`;
+  }
+
+  let jinxHtml = '';
+  if (jinx) {
+    const verdictMsg = jinx.better === 'go'
+      ? `🎉 내가 가야 ${fp.player_name} 잘함!`
+      : jinx.better === 'nogo'
+      ? `😭 내가 안 가야 ${fp.player_name} 잘함...`
+      : '아직 데이터가 쌓이는 중이에요';
+
+    jinxHtml = `
+      <div class="jinx-box">
+        <div class="jinx-title">직관 징크스 분석 (최근 경기 기준)</div>
+        <div class="jinx-row">
+          <div class="jinx-item go">
+            <div class="jinx-label">내가 간 날 (${jinx.go.length}경기)</div>
+            <div class="jinx-val">${jinx.goStat ?? '-'}</div>
+            <div class="jinx-label">${jinx.statLabel}</div>
+          </div>
+          <div class="jinx-item nogo">
+            <div class="jinx-label">내가 안 간 날 (${jinx.nogo.length}경기)</div>
+            <div class="jinx-val">${jinx.nogoStat ?? '-'}</div>
+            <div class="jinx-label">${jinx.statLabel}</div>
+          </div>
+        </div>
+        <div class="jinx-verdict">${verdictMsg}</div>
+      </div>`;
+  }
+
+  const recentHtml = (stats?.recent_games || []).slice(0,5).map(g => {
+    const [m, d] = (g.date||'').split('.');
+    const fullDate = `${new Date().getFullYear()}-${(m||'').padStart(2,'0')}-${(d||'').padStart(2,'0')}`;
+    const wentToGame = records.some(r => r.date === fullDate);
+    let statText = '';
+    if (fp.is_pitcher) {
+      statText = `${g.ip}이닝 ${g.r}실점`;
+    } else {
+      statText = `${g.ab||'-'}타수 ${g.h||'-'}안타${g.hr&&g.hr!='0'?' '+g.hr+'홈런':''}`;
+    }
+    return `<div class="recent-game-item">
+      <span class="rg-date">${g.date}</span>
+      <span class="rg-opp">vs ${g.opponent}</span>
+      <span class="rg-stat">${statText}</span>
+      ${wentToGame ? '<span class="rg-go">직관 ✓</span>' : ''}
+    </div>`;
+  }).join('');
+
+  return `<div class="fav-player-card">
+    <div class="fav-player-header">
+      <div>
+        <div class="fav-player-name">⭐ ${fp.player_name} ${fp.is_pitcher ? '투수' : '타자'}</div>
+        <div class="fav-player-sub">${fp.team_name} · 2026 시즌: ${seasonText}</div>
+      </div>
+      <button class="btn-fav-del" onclick="removeFavPlayer(${fp.player_id})">×</button>
+    </div>
+    ${jinxHtml}
+    <div class="jinx-title" style="margin-bottom:8px">최근 경기 기록</div>
+    ${recentHtml}
+  </div>`;
+}
 
 // ── 비밀번호 변경 ──────────────────────────────────
 function showPwModal() {
