@@ -507,7 +507,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -570,7 +570,7 @@ async function submitAuth() {
 
 async function logout() {
   try{await fetch(`${SERVER_URL}/auth/logout`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});}catch(e){}
-  token='';username='';favoriteTeam='';records=[];
+  token='';username='';favoriteTeam='';records=[];favPlayers=[];
   localStorage.removeItem('kbo_token');localStorage.removeItem('kbo_username');localStorage.removeItem('kbo_team');
   document.getElementById('mainScreen').style.display='none';
   document.getElementById('authScreen').style.display='flex';
