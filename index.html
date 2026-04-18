@@ -88,11 +88,33 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .result-toggle button.sel-win{background:var(--green-light);color:var(--green);border-color:#5DCAA5;}
 .result-toggle button.sel-lose{background:var(--red-light);color:var(--red);border-color:#F0997B;}
 .result-toggle button.sel-draw{background:var(--gray-light);color:var(--gray);border-color:#B4B2A9;}
-.mood-row{display:flex;gap:8px;margin-bottom:0;}
-.mood-btn{flex:1;padding:8px 4px;font-size:20px;border-radius:var(--radius-sm);border:1px solid var(--border);background:white;cursor:pointer;text-align:center;}
-.mood-btn.selected{border-width:2px;border-color:var(--primary);background:var(--primary-light);}
+.mood-picker{display:flex;flex-direction:column;gap:6px;margin-bottom:0;}
+.mood-picker-section{font-size:10px;color:var(--text-hint);font-weight:600;letter-spacing:.3px;}
+.mood-picker-row{display:flex;flex-wrap:wrap;gap:5px;}
+.mood-btn{font-size:18px;padding:6px;border-radius:var(--radius-sm);border:2px solid transparent;background:var(--bg);cursor:pointer;line-height:1;}
+.mood-btn.selected{border-color:var(--primary);background:var(--primary-light);}
+.mood-btn.disabled{opacity:.3;cursor:not-allowed;}
 .btn-add{width:100%;padding:12px;font-size:15px;font-weight:600;border-radius:var(--radius-sm);border:none;background:var(--primary);color:white;cursor:pointer;margin-top:4px;}
 .btn-add:disabled{opacity:.35;cursor:not-allowed;}
+
+/* 달력 */
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cal-nav-btn{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 10px;cursor:pointer;color:var(--text-sub);font-size:14px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-day-label{text-align:center;font-size:10px;color:var(--text-hint);padding:4px 0;font-weight:600;}
+.cal-day{text-align:center;padding:5px 2px;border-radius:6px;font-size:11px;min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:default;}
+.cal-day.empty{}
+.cal-day.today{outline:2px solid var(--primary);outline-offset:-2px;}
+.cal-day.has-record{cursor:pointer;}
+.cal-day.win{background:var(--primary);color:white;}
+.cal-day.lose{background:#B4B2A9;color:white;}
+.cal-day.draw{border:2px dashed var(--primary);color:var(--text);}
+.cal-day-num{font-weight:500;font-size:11px;line-height:1;}
+.cal-day-emoji{font-size:13px;line-height:1;}
+.cal-popup{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);padding:12px;margin-top:8px;}
+.cal-popup-date{font-size:12px;color:var(--text-sub);margin-bottom:4px;}
+.cal-popup-main{font-size:14px;font-weight:600;margin-bottom:3px;}
+.cal-popup-sub{font-size:12px;color:var(--text-sub);}
 
 /* 통계 탭 */
 .stat-nav{display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
@@ -328,12 +350,42 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
               <div class="fgroup"><label class="label" style="font-size:10px">총 지출 (원)</label><input id="editCost" type="number" min="0" placeholder="0"/></div>
             </div>
             <div class="fgroup" style="margin-bottom:8px">
-              <label class="label" style="font-size:10px">직관 후 기분</label>
-              <div class="mood-row">
-                <button class="mood-btn" data-mood="😭" onclick="setMood(this,'😭')">😭</button>
-                <button class="mood-btn" data-mood="😐" onclick="setMood(this,'😐')">😐</button>
-                <button class="mood-btn" data-mood="🙂" onclick="setMood(this,'🙂')">🙂</button>
-                <button class="mood-btn" data-mood="😆" onclick="setMood(this,'😆')">😆</button>
+              <label class="label" style="font-size:10px">직관 후 기분 <span style="color:var(--red)">*</span> <span style="color:var(--text-hint);font-weight:400">(최대 2개)</span></label>
+              <div class="mood-picker" id="autoMoodPicker">
+                <div class="mood-picker-section">감정</div>
+                <div class="mood-picker-row">
+                  <button class="mood-btn" data-mood="😭" onclick="setMood(this,'😭','auto')">😭</button>
+                  <button class="mood-btn" data-mood="😤" onclick="setMood(this,'😤','auto')">😤</button>
+                  <button class="mood-btn" data-mood="💔" onclick="setMood(this,'💔','auto')">💔</button>
+                  <button class="mood-btn" data-mood="❤️" onclick="setMood(this,'❤️','auto')">❤️</button>
+                  <button class="mood-btn" data-mood="😐" onclick="setMood(this,'😐','auto')">😐</button>
+                  <button class="mood-btn" data-mood="😴" onclick="setMood(this,'😴','auto')">😴</button>
+                  <button class="mood-btn" data-mood="🥲" onclick="setMood(this,'🥲','auto')">🥲</button>
+                  <button class="mood-btn" data-mood="🙂" onclick="setMood(this,'🙂','auto')">🙂</button>
+                  <button class="mood-btn" data-mood="😆" onclick="setMood(this,'😆','auto')">😆</button>
+                  <button class="mood-btn" data-mood="🤩" onclick="setMood(this,'🤩','auto')">🤩</button>
+                  <button class="mood-btn" data-mood="🥹" onclick="setMood(this,'🥹','auto')">🥹</button>
+                </div>
+                <div class="mood-picker-section">상황</div>
+                <div class="mood-picker-row">
+                  <button class="mood-btn" data-mood="🎉" onclick="setMood(this,'🎉','auto')">🎉</button>
+                  <button class="mood-btn" data-mood="🔥" onclick="setMood(this,'🔥','auto')">🔥</button>
+                  <button class="mood-btn" data-mood="☔" onclick="setMood(this,'☔','auto')">☔</button>
+                  <button class="mood-btn" data-mood="🍺" onclick="setMood(this,'🍺','auto')">🍺</button>
+                </div>
+                <div class="mood-picker-section">팀 이모지</div>
+                <div class="mood-picker-row">
+                  <button class="mood-btn" data-mood="🦅" onclick="setMood(this,'🦅','auto')">🦅</button>
+                  <button class="mood-btn" data-mood="🔱" onclick="setMood(this,'🔱','auto')">🔱</button>
+                  <button class="mood-btn" data-mood="👬" onclick="setMood(this,'👬','auto')">👬</button>
+                  <button class="mood-btn" data-mood="🐻" onclick="setMood(this,'🐻','auto')">🐻</button>
+                  <button class="mood-btn" data-mood="🦁" onclick="setMood(this,'🦁','auto')">🦁</button>
+                  <button class="mood-btn" data-mood="⚡" onclick="setMood(this,'⚡','auto')">⚡</button>
+                  <button class="mood-btn" data-mood="🦕" onclick="setMood(this,'🦕','auto')">🦕</button>
+                  <button class="mood-btn" data-mood="🧙" onclick="setMood(this,'🧙','auto')">🧙</button>
+                  <button class="mood-btn" data-mood="⚔️" onclick="setMood(this,'⚔️','auto')">⚔️</button>
+                  <button class="mood-btn" data-mood="🐯" onclick="setMood(this,'🐯','auto')">🐯</button>
+                </div>
               </div>
             </div>
             <div class="fgroup">
@@ -380,12 +432,42 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
           <div class="fgroup"><label class="label" style="font-size:10px">총 지출 (원)</label><input id="manCost" type="number" min="0" placeholder="0"/></div>
         </div>
         <div class="fgroup" style="margin-bottom:8px">
-          <label class="label" style="font-size:10px">직관 후 기분</label>
-          <div class="mood-row">
-            <button class="mood-btn" data-mood="😭" onclick="setMoodMan(this,'😭')">😭</button>
-            <button class="mood-btn" data-mood="😐" onclick="setMoodMan(this,'😐')">😐</button>
-            <button class="mood-btn" data-mood="🙂" onclick="setMoodMan(this,'🙂')">🙂</button>
-            <button class="mood-btn" data-mood="😆" onclick="setMoodMan(this,'😆')">😆</button>
+          <label class="label" style="font-size:10px">직관 후 기분 <span style="color:var(--red)">*</span> <span style="color:var(--text-hint);font-weight:400">(최대 2개)</span></label>
+          <div class="mood-picker" id="manMoodPicker">
+            <div class="mood-picker-section">감정</div>
+            <div class="mood-picker-row">
+              <button class="mood-btn" data-mood="😭" onclick="setMood(this,'😭','man')">😭</button>
+              <button class="mood-btn" data-mood="😤" onclick="setMood(this,'😤','man')">😤</button>
+              <button class="mood-btn" data-mood="💔" onclick="setMood(this,'💔','man')">💔</button>
+              <button class="mood-btn" data-mood="❤️" onclick="setMood(this,'❤️','man')">❤️</button>
+              <button class="mood-btn" data-mood="😐" onclick="setMood(this,'😐','man')">😐</button>
+              <button class="mood-btn" data-mood="😴" onclick="setMood(this,'😴','man')">😴</button>
+              <button class="mood-btn" data-mood="🥲" onclick="setMood(this,'🥲','man')">🥲</button>
+              <button class="mood-btn" data-mood="🙂" onclick="setMood(this,'🙂','man')">🙂</button>
+              <button class="mood-btn" data-mood="😆" onclick="setMood(this,'😆','man')">😆</button>
+              <button class="mood-btn" data-mood="🤩" onclick="setMood(this,'🤩','man')">🤩</button>
+              <button class="mood-btn" data-mood="🥹" onclick="setMood(this,'🥹','man')">🥹</button>
+            </div>
+            <div class="mood-picker-section">상황</div>
+            <div class="mood-picker-row">
+              <button class="mood-btn" data-mood="🎉" onclick="setMood(this,'🎉','man')">🎉</button>
+              <button class="mood-btn" data-mood="🔥" onclick="setMood(this,'🔥','man')">🔥</button>
+              <button class="mood-btn" data-mood="☔" onclick="setMood(this,'☔','man')">☔</button>
+              <button class="mood-btn" data-mood="🍺" onclick="setMood(this,'🍺','man')">🍺</button>
+            </div>
+            <div class="mood-picker-section">팀 이모지</div>
+            <div class="mood-picker-row">
+              <button class="mood-btn" data-mood="🦅" onclick="setMood(this,'🦅','man')">🦅</button>
+              <button class="mood-btn" data-mood="🔱" onclick="setMood(this,'🔱','man')">🔱</button>
+              <button class="mood-btn" data-mood="👬" onclick="setMood(this,'👬','man')">👬</button>
+              <button class="mood-btn" data-mood="🐻" onclick="setMood(this,'🐻','man')">🐻</button>
+              <button class="mood-btn" data-mood="🦁" onclick="setMood(this,'🦁','man')">🦁</button>
+              <button class="mood-btn" data-mood="⚡" onclick="setMood(this,'⚡','man')">⚡</button>
+              <button class="mood-btn" data-mood="🦕" onclick="setMood(this,'🦕','man')">🦕</button>
+              <button class="mood-btn" data-mood="🧙" onclick="setMood(this,'🧙','man')">🧙</button>
+              <button class="mood-btn" data-mood="⚔️" onclick="setMood(this,'⚔️','man')">⚔️</button>
+              <button class="mood-btn" data-mood="🐯" onclick="setMood(this,'🐯','man')">🐯</button>
+            </div>
           </div>
         </div>
         <div class="fgroup" style="margin-bottom:10px">
@@ -406,17 +488,29 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
     <!-- 통계 카드 -->
     <div class="card">
       <div class="stat-nav">
-        <button class="stat-nav-btn active" onclick="switchStatNav('overview')">전체</button>
+        <button class="stat-nav-btn active" onclick="switchStatNav('calendar')">📅 달력</button>
+        <button class="stat-nav-btn" onclick="switchStatNav('overview')">리스트</button>
+        <button class="stat-nav-btn" onclick="switchStatNav('player')">⭐ 선수</button>
         <button class="stat-nav-btn" onclick="switchStatNav('vs')">상대팀별</button>
         <button class="stat-nav-btn" onclick="switchStatNav('day')">요일별</button>
+        <button class="stat-nav-btn" onclick="switchStatNav('gallery')">📷 사진첩</button>
         <button class="stat-nav-btn" onclick="switchStatNav('money')">지출</button>
         <button class="stat-nav-btn" onclick="switchStatNav('milestone')">마일스톤</button>
-        <button class="stat-nav-btn" onclick="switchStatNav('gallery')">📷 사진첩</button>
-        <button class="stat-nav-btn" onclick="switchStatNav('player')">⭐ 선수</button>
+      </div>
+
+      <!-- 📅 달력 -->
+      <div class="stat-section active" id="stat-calendar">
+        <div class="cal-header">
+          <button class="cal-nav-btn" onclick="changeMonth(-1)">◀</button>
+          <span id="calMonthLabel" style="font-size:15px;font-weight:500;"></span>
+          <button class="cal-nav-btn" onclick="changeMonth(1)">▶</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div id="calPopup" class="cal-popup" style="display:none"></div>
       </div>
 
       <!-- 전체 통계 -->
-      <div class="stat-section active" id="stat-overview">
+      <div class="stat-section" id="stat-overview">
         <div class="stats-grid" id="statsGrid"></div>
         <div class="section-title">홈 / 원정</div>
         <div class="ha-grid" id="haGrid"></div>
@@ -507,7 +601,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -528,9 +622,10 @@ let username = localStorage.getItem('kbo_username') || '';
 let favoriteTeam = localStorage.getItem('kbo_team') || '';
 let records = [];
 let foundGame = null, editResult = null, manResult = null;
+let autoMoods = [], manMoods = [];
 let editMood = '', manMood = '';
 let selectedTeamForRegister = '';
-let currentStatNav = 'overview';
+let currentStatNav = 'calendar';
 
 // ── 인증 ────────────────────────────────────────────
 let authMode = 'login';
@@ -570,7 +665,7 @@ async function submitAuth() {
 
 async function logout() {
   try{await fetch(`${SERVER_URL}/auth/logout`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});}catch(e){}
-  token='';username='';favoriteTeam='';records=[];favPlayers=[];
+  token='';username='';favoriteTeam='';records=[];favPlayers=[];autoMoods=[];manMoods=[];editMood='';manMood='';
   localStorage.removeItem('kbo_token');localStorage.removeItem('kbo_username');localStorage.removeItem('kbo_team');
   document.getElementById('mainScreen').style.display='none';
   document.getElementById('authScreen').style.display='flex';
@@ -677,16 +772,35 @@ function switchTab(t){
 }
 function switchStatNav(t){
   currentStatNav=t;
-  document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',['overview','vs','day','money','milestone','gallery','player'][i]===t));
+  const tabs=['calendar','overview','player','vs','day','gallery','money','milestone'];
+  document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));
   document.querySelectorAll('.stat-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('stat-'+t).classList.add('active');
   if(t==='gallery') loadGallery();
   if(t==='player') loadFavPlayers();
+  if(t==='calendar') renderCalendar();
 }
 function setEditResult(v){editResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('et-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
 function setManResult(v){manResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('mt-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
-function setMood(btn,v){editMood=v;document.querySelectorAll('#editSection .mood-btn').forEach(b=>b.classList.toggle('selected',b.dataset.mood===v));}
-function setMoodMan(btn,v){manMood=v;document.querySelectorAll('#tab-manual .mood-btn').forEach(b=>b.classList.toggle('selected',b.dataset.mood===v));}
+function setMood(btn, v, mode) {
+  const picker = mode === 'auto' ? 'autoMoodPicker' : 'manMoodPicker';
+  const arr = mode === 'auto' ? autoMoods : manMoods;
+  if (arr.includes(v)) {
+    const idx = arr.indexOf(v);
+    arr.splice(idx, 1);
+    btn.classList.remove('selected');
+  } else {
+    if (arr.length >= 2) return;
+    arr.push(v);
+    btn.classList.add('selected');
+  }
+  document.querySelectorAll(`#${picker} .mood-btn`).forEach(b => {
+    if (!b.classList.contains('selected')) b.classList.toggle('disabled', arr.length >= 2);
+  });
+  if (mode === 'auto') editMood = arr.join('');
+  else manMood = arr.join('');
+}
+function setMoodMan(btn,v){ setMood(btn,v,'man'); }
 
 // ── 경기 검색 ────────────────────────────────────────
 async function searchGame() {
@@ -724,6 +838,7 @@ async function searchGame() {
 
 async function addAutoRecord() {
   if(!foundGame)return;
+  if(!editMood){alert('기분 이모지를 선택해주세요!');return;}
   const opp=document.getElementById('editOpp').value.trim()||foundGame.opponent;
   const hs=parseInt(document.getElementById('editHS').value);
   const os=parseInt(document.getElementById('editOS').value);
@@ -745,8 +860,8 @@ async function addAutoRecord() {
     document.getElementById('resultBox').innerHTML='<span class="msg-ok">✓ 기록이 추가되었어요!</span>';
     document.getElementById('editMemo').value='';
     resetPhotoArea('autoPhotoArea');
-    editMood='';foundGame=null;
-    document.querySelectorAll('#editSection .mood-btn').forEach(b=>b.classList.remove('selected'));
+    editMood=''; autoMoods=[];foundGame=null;
+    document.querySelectorAll('#autoMoodPicker .mood-btn').forEach(b=>{b.classList.remove('selected','disabled');});
     checkMilestones();
   }else{const d=await r.json();alert(d.error||'추가 실패');}
 }
@@ -761,6 +876,7 @@ async function addManualRecord() {
   const cost=parseInt(document.getElementById('manCost').value)||0;
   const memo=document.getElementById('manMemo').value.trim();
   if(!date||!opp||isNaN(hs)||isNaN(os)||!manResult){alert('모든 항목을 입력해주세요');return;}
+  if(!manMood){alert('기분 이모지를 선택해주세요!');return;}
   const r=await saveRecord({date,opponent:opp,team_score:hs,opponent_score:os,result:manResult,home_away:ha,stadium:'',people,cost,mood:manMood,memo});
   if(r.ok){
     const data = await r.json();
@@ -770,8 +886,8 @@ async function addManualRecord() {
     document.getElementById('manOpp').value='';document.getElementById('manHA').value='';
     document.getElementById('manMemo').value='';
     resetPhotoArea('manPhotoArea');
-    setManResult(null);manResult=null;manMood='';
-    document.querySelectorAll('#tab-manual .mood-btn').forEach(b=>b.classList.remove('selected'));
+    setManResult(null);manResult=null;manMood='';manMoods=[];
+    document.querySelectorAll('#manMoodPicker .mood-btn').forEach(b=>{b.classList.remove('selected','disabled');});
     checkMilestones();
     alert('✓ 기록이 추가되었어요!');
   }else{const d=await r.json();alert(d.error||'추가 실패');}
@@ -815,7 +931,10 @@ function showMilestoneToast(msg) {
 // ── 렌더링 ───────────────────────────────────────────
 function fmt(n){return(n===null||n===undefined||isNaN(n))?'-':n.toLocaleString('ko-KR')+'원';}
 
-function renderAll(){renderOverview();renderVs();renderDay();renderMoney();renderMilestones();renderList();}
+function renderAll(){
+  renderOverview();renderVs();renderDay();renderMoney();renderMilestones();renderList();
+  if(currentStatNav==='calendar') renderCalendar();
+}
 
 // ── 사진 ─────────────────────────────────────────────
 let pendingPhotos = { auto: [], man: [] };
@@ -888,6 +1007,66 @@ function openPhotoModal(url, info) {
   document.getElementById('photoModal').classList.add('open');
 }
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
+
+// ── 달력 ──────────────────────────────────────────────
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+const CAL_DAYS = ['월','화','수','목','금','토','일'];
+
+function changeMonth(dir) {
+  calMonth += dir;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  document.getElementById('calMonthLabel').textContent = `${calYear}년 ${calMonth+1}월`;
+  const grid = document.getElementById('calGrid');
+  const today = new Date();
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+
+  let html = CAL_DAYS.map(d=>`<div class="cal-day-label">${d}</div>`).join('');
+
+  for (let i=0; i<startOffset; i++) html += `<div class="cal-day empty"></div>`;
+
+  for (let d=1; d<=daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const rec = records.find(r => r.date === dateStr);
+    const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
+
+    if (rec) {
+      const cls = rec.result==='승'?'win':rec.result==='패'?'lose':'draw';
+      const mood = rec.mood || '';
+      html += `<div class="cal-day has-record ${cls}${isToday?' today':''}" onclick="showCalPopup('${dateStr}')">
+        <div class="cal-day-num">${d}</div>
+        <div class="cal-day-emoji">${mood}</div>
+      </div>`;
+    } else {
+      html += `<div class="cal-day${isToday?' today':''}">
+        <div class="cal-day-num">${d}</div>
+      </div>`;
+    }
+  }
+  grid.innerHTML = html;
+  document.getElementById('calPopup').style.display = 'none';
+}
+
+function showCalPopup(dateStr) {
+  const rec = records.find(r => r.date === dateStr);
+  if (!rec) return;
+  const popup = document.getElementById('calPopup');
+  const score = `${rec.team_score??rec.hanwha_score??'-'} : ${rec.opponent_score??'-'}`;
+  const resultText = rec.result==='승'?'🎉 승리':rec.result==='패'?'😭 패배':'🤝 무승부';
+  popup.innerHTML = `
+    <div class="cal-popup-date">${dateStr} · ${rec.home_away||''}</div>
+    <div class="cal-popup-main">vs ${rec.opponent} &nbsp; ${score}</div>
+    <div class="cal-popup-sub">${resultText} &nbsp; ${rec.mood||''} &nbsp; ${rec.memo?`"${rec.memo}"`:''}
+    </div>`;
+  popup.style.display = 'block';
+}
 
 // ── 선수 덕질 ──────────────────────────────────────
 let favPlayers = [];
