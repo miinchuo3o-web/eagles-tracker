@@ -647,7 +647,7 @@ def player_stats(player_id):
                     if is_pitcher:
                         season = {'era': cells[1], 'g': cells[2], 'w': cells[5], 'l': cells[6], 'ip': cells[12]}
                     else:
-                        season = {'avg': cells[1], 'g': cells[2], 'h': cells[7], 'hr': cells[10], 'rbi': cells[11]}
+                        season = {'avg': cells[1], 'g': cells[2], 'h': cells[6], 'hr': cells[9], 'rbi': cells[11]}
 
         return jsonify({
             'player_id': player_id,
