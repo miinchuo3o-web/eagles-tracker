@@ -1416,7 +1416,7 @@ function renderList(){
   }).join('');
 }
 
-const today=new Date().toISOString().split('T')[0];
+const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
 document.getElementById('autoDate').max=today;
 document.getElementById('manDate').max=today;
 </script>
