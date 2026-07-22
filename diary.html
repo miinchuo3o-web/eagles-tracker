@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="오늘의 일기"/>
+<meta name="theme-color" content="#2C2C2A"/>
+<title>📔 오늘의 일기</title>
+<style>
+:root{
+  --bg:#1e1e1c;--card:#2C2C2A;--card2:#3d3d3a;
+  --primary:#BA7517;--primary-light:#FFF8E8;--primary-dark:#854F0B;
+  --text:#D3D1C7;--text-sub:#888780;--text-hint:#5F5E5A;
+  --border:rgba(255,255,255,0.08);--radius:12px;--radius-sm:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;}
+
+/* 인증 */
+.auth-wrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.auth-card{background:var(--card);border-radius:var(--radius);padding:2rem;width:100%;max-width:360px;border:.5px solid var(--border);}
+.auth-logo{text-align:center;font-size:48px;margin-bottom:8px;}
+.auth-title{text-align:center;font-size:20px;font-weight:600;margin-bottom:4px;color:var(--text);}
+.auth-sub{text-align:center;font-size:13px;color:var(--text-sub);margin-bottom:20px;}
+.auth-tabs{display:flex;gap:6px;margin-bottom:16px;}
+.auth-tab{flex:1;padding:8px;font-size:14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--card2);color:var(--text-sub);cursor:pointer;font-weight:500;}
+.auth-tab.active{background:var(--primary-dark);color:var(--primary-light);border-color:var(--primary);}
+.auth-field{margin-bottom:12px;}
+.auth-field label{display:block;font-size:12px;color:var(--text-sub);margin-bottom:4px;font-weight:500;}
+.auth-field input{width:100%;padding:12px;font-size:15px;border:1px solid var(--border);border-radius:var(--radius-sm);outline:none;background:var(--card2);color:var(--text);}
+.auth-field input:focus{border-color:var(--primary);}
+.btn-auth{width:100%;padding:13px;font-size:15px;font-weight:600;border-radius:var(--radius-sm);border:none;background:var(--primary-dark);color:var(--primary-light);cursor:pointer;margin-top:4px;}
+.auth-err{color:#F09595;font-size:13px;text-align:center;margin-top:8px;min-height:20px;}
+
+/* 헤더 */
+.header{background:var(--card);color:var(--text);padding:16px 20px 14px;position:sticky;top:0;z-index:10;border-bottom:.5px solid var(--border);}
+.header h1{font-size:17px;font-weight:600;}
+.header p{font-size:12px;color:var(--text-sub);margin-top:2px;}
+.header-right{position:absolute;right:16px;top:50%;transform:translateY(-50%);display:flex;gap:8px;}
+.btn-sm{background:var(--card2);border:1px solid var(--border);color:var(--text-sub);padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer;}
+
+/* 탭 네비 */
+.tab-nav{display:flex;background:var(--card);border-bottom:.5px solid var(--border);position:sticky;top:53px;z-index:9;}
+.tab-nav-btn{flex:1;padding:12px 4px;font-size:13px;color:var(--text-sub);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-weight:500;}
+.tab-nav-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
+.tab-panel{display:none;padding:16px;max-width:480px;margin:0 auto;}
+.tab-panel.active{display:block;}
+
+/* 입력 공통 */
+input[type="text"],input[type="password"],input[type="date"],textarea,select{
+  width:100%;padding:10px 12px;font-size:14px;border:1px solid var(--border);
+  border-radius:var(--radius-sm);background:var(--card2);color:var(--text);
+  outline:none;font-family:inherit;-webkit-appearance:none;
+}
+input:focus,textarea:focus,select:focus{border-color:var(--primary);}
+textarea{resize:none;}
+.label{font-size:11px;color:var(--text-sub);font-weight:600;letter-spacing:.4px;margin-bottom:6px;display:block;}
+.fgroup{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+
+/* 카드 */
+.card{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);padding:16px;margin-bottom:12px;}
+.section-title{font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:10px;}
+
+/* 이모지 피커 */
+.mood-picker{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+.mood-section-label{font-size:10px;color:var(--text-hint);font-weight:600;letter-spacing:.4px;}
+.mood-row{display:flex;flex-wrap:wrap;gap:5px;}
+.mood-btn{font-size:18px;padding:6px;border-radius:var(--radius-sm);border:2px solid transparent;background:var(--card2);cursor:pointer;line-height:1;}
+.mood-btn.selected{border-color:var(--primary);background:var(--primary-dark);}
+.mood-btn.disabled{opacity:.3;cursor:not-allowed;}
+.mood-selected-display{font-size:13px;color:var(--text-sub);margin-top:4px;min-height:20px;}
+
+/* 날씨 */
+.weather-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.weather-btn{padding:6px 10px;font-size:14px;border-radius:20px;border:1px solid var(--border);background:var(--card2);color:var(--text-sub);cursor:pointer;}
+.weather-btn.selected{border-color:var(--primary);background:var(--primary-dark);color:var(--primary-light);}
+
+/* 선택 질문 */
+.q-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.q-item{background:var(--card2);border-radius:var(--radius-sm);overflow:hidden;}
+.q-header{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;}
+.q-icon{font-size:16px;}
+.q-title{flex:1;font-size:13px;color:var(--text-sub);font-weight:500;}
+.q-toggle{font-size:18px;color:var(--text-hint);}
+.q-body{padding:0 12px 10px;display:none;}
+.q-body.open{display:block;}
+.q-body textarea{min-height:60px;font-size:13px;}
+
+/* 저장 버튼 */
+.btn-save{width:100%;padding:13px;font-size:15px;font-weight:600;border-radius:var(--radius-sm);border:none;background:var(--primary-dark);color:var(--primary-light);cursor:pointer;margin-top:4px;}
+.btn-save:disabled{opacity:.4;cursor:not-allowed;}
+
+/* AI 요약 */
+.ai-box{background:var(--card2);border-radius:var(--radius-sm);padding:12px;margin-top:10px;border-left:3px solid var(--primary);}
+.ai-label{font-size:10px;color:var(--primary);font-weight:600;margin-bottom:4px;}
+.ai-text{font-size:13px;color:var(--text);line-height:1.6;}
+
+/* 달력 */
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cal-nav{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 10px;cursor:pointer;color:var(--text-sub);font-size:14px;}
+.cal-month{font-size:15px;font-weight:500;color:var(--text);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-day-label{text-align:center;font-size:10px;color:var(--text-hint);padding:4px 0;font-weight:600;}
+.cal-day{text-align:center;padding:4px 2px;border-radius:6px;font-size:11px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;}
+.cal-day.has-record{cursor:pointer;background:var(--primary-dark);}
+.cal-day.has-record:active{opacity:.8;}
+.cal-day.today{outline:2px solid var(--primary);outline-offset:-2px;}
+.cal-day-num{font-weight:500;font-size:11px;line-height:1;color:var(--text-sub);}
+.cal-day.has-record .cal-day-num{color:var(--primary-light);}
+.cal-day-emoji{font-size:13px;line-height:1;}
+.cal-popup{background:var(--card2);border-radius:var(--radius-sm);padding:14px;margin-top:10px;border:.5px solid var(--border);}
+.cal-popup-date{font-size:11px;color:var(--text-hint);margin-bottom:6px;}
+.cal-popup-mood{font-size:24px;margin-bottom:6px;}
+.cal-popup-weather{font-size:13px;color:var(--text-sub);margin-bottom:8px;}
+.cal-popup-ai{font-size:13px;color:var(--text);line-height:1.6;border-left:2px solid var(--primary);padding-left:10px;}
+
+/* 기록 목록 */
+.diary-list{display:flex;flex-direction:column;gap:8px;}
+.diary-item{background:var(--card2);border-radius:var(--radius-sm);padding:12px;}
+.diary-item-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.diary-item-date{font-size:11px;color:var(--text-hint);}
+.diary-item-mood{font-size:20px;}
+.diary-item-weather{font-size:14px;}
+.diary-item-del{margin-left:auto;color:var(--text-hint);font-size:18px;cursor:pointer;background:none;border:none;}
+.diary-item-ai{font-size:12px;color:var(--text-sub);line-height:1.5;margin-top:4px;border-left:2px solid var(--primary-dark);padding-left:8px;}
+.diary-item-qs{display:flex;flex-direction:column;gap:3px;margin-top:6px;}
+.diary-q-row{font-size:12px;color:var(--text-hint);}
+.diary-q-row span{color:var(--text-sub);}
+
+/* 통계 */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+.stat-box{background:var(--card2);border-radius:var(--radius-sm);padding:12px;text-align:center;}
+.stat-val{font-size:22px;font-weight:600;color:var(--primary);}
+.stat-label{font-size:10px;color:var(--text-sub);margin-top:2px;}
+.emoji-stat-list{display:flex;flex-direction:column;gap:6px;}
+.emoji-stat-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card2);border-radius:var(--radius-sm);}
+.emoji-stat-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.emoji-stat-bar{height:100%;background:var(--primary-dark);border-radius:3px;}
+.emoji-stat-cnt{font-size:11px;color:var(--text-sub);min-width:24px;text-align:right;}
+
+/* 과거 오늘 */
+.past-today-box{background:var(--card2);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;border-left:3px solid var(--primary-dark);}
+.past-today-year{font-size:11px;color:var(--primary);font-weight:600;margin-bottom:6px;}
+.past-today-mood{font-size:24px;margin-bottom:4px;}
+.past-today-text{font-size:13px;color:var(--text-sub);line-height:1.5;}
+
+.empty{text-align:center;color:var(--text-hint);font-size:13px;padding:32px;line-height:1.8;}
+.msg-ok{color:#5DCAA5;font-size:13px;}
+.msg-err{color:#F09595;font-size:13px;}
+.streak-badge{display:inline-block;background:var(--primary-dark);color:var(--primary-light);padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="authScreen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">📔</div>
+    <div class="auth-title">오늘의 일기</div>
+    <div class="auth-sub">불 끄고 침대에서 쓰는 나만의 일기 🌙</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">로그인</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">회원가입</button>
+    </div>
+    <div class="auth-field"><label>아이디</label>
+      <input type="text" id="authUsername" placeholder="아이디 입력" autocomplete="username"/>
+    </div>
+    <div class="auth-field"><label>비밀번호</label>
+      <input type="password" id="authPassword" placeholder="비밀번호 입력"
+        onkeydown="if(event.key==='Enter') submitAuth()"/>
+    </div>
+    <button class="btn-auth" id="authSubmitBtn" onclick="submitAuth()">로그인</button>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<!-- 메인 -->
+<div id="mainScreen" style="display:none">
+  <div class="header">
+    <h1>📔 오늘의 일기</h1>
+    <p id="headerUser"></p>
+    <div class="header-right">
+      <button class="btn-sm" onclick="logout()">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-nav-btn active" onclick="switchTab('write')">✏️ 쓰기</button>
+    <button class="tab-nav-btn" onclick="switchTab('calendar')">📅 달력</button>
+    <button class="tab-nav-btn" onclick="switchTab('list')">📋 목록</button>
+    <button class="tab-nav-btn" onclick="switchTab('stats')">📊 통계</button>
+  </div>
+
+  <!-- 쓰기 탭 -->
+  <div class="tab-panel active" id="tab-write">
+    <div class="card">
+      <div class="fgroup">
+        <label class="label">날짜</label>
+        <input type="date" id="diaryDate"/>
+      </div>
+
+      <div class="fgroup">
+        <label class="label">오늘의 기분 <span style="color:#F09595">*</span> <span style="font-size:10px;color:var(--text-hint);font-weight:400">(최대 2개)</span></label>
+        <div class="mood-picker" id="moodPicker">
+          <div class="mood-section-label">감정</div>
+          <div class="mood-row">
+            <button class="mood-btn" data-mood="😭" onclick="toggleMood(this)">😭</button>
+            <button class="mood-btn" data-mood="😤" onclick="toggleMood(this)">😤</button>
+            <button class="mood-btn" data-mood="💔" onclick="toggleMood(this)">💔</button>
+            <button class="mood-btn" data-mood="❤️" onclick="toggleMood(this)">❤️</button>
+            <button class="mood-btn" data-mood="😐" onclick="toggleMood(this)">😐</button>
+            <button class="mood-btn" data-mood="😴" onclick="toggleMood(this)">😴</button>
+            <button class="mood-btn" data-mood="🥲" onclick="toggleMood(this)">🥲</button>
+            <button class="mood-btn" data-mood="🙂" onclick="toggleMood(this)">🙂</button>
+            <button class="mood-btn" data-mood="😆" onclick="toggleMood(this)">😆</button>
+            <button class="mood-btn" data-mood="🤩" onclick="toggleMood(this)">🤩</button>
+            <button class="mood-btn" data-mood="🥹" onclick="toggleMood(this)">🥹</button>
+          </div>
+          <div class="mood-section-label">상황</div>
+          <div class="mood-row">
+            <button class="mood-btn" data-mood="🎉" onclick="toggleMood(this)">🎉</button>
+            <button class="mood-btn" data-mood="🔥" onclick="toggleMood(this)">🔥</button>
+            <button class="mood-btn" data-mood="☔" onclick="toggleMood(this)">☔</button>
+            <button class="mood-btn" data-mood="🍺" onclick="toggleMood(this)">🍺</button>
+          </div>
+        </div>
+        <div class="mood-selected-display" id="moodDisplay">선택한 기분: —</div>
+      </div>
+
+      <div class="fgroup">
+        <label class="label">오늘 날씨 <span style="color:var(--text-hint);font-size:10px;font-weight:400" id="weatherAutoLabel"></span></label>
+        <div class="weather-row" id="weatherRow">
+          <button class="weather-btn" data-w="☀️" onclick="setWeather(this)">☀️ 맑음</button>
+          <button class="weather-btn" data-w="⛅" onclick="setWeather(this)">⛅ 구름</button>
+          <button class="weather-btn" data-w="☁️" onclick="setWeather(this)">☁️ 흐림</button>
+          <button class="weather-btn" data-w="🌧️" onclick="setWeather(this)">🌧️ 비</button>
+          <button class="weather-btn" data-w="⛈️" onclick="setWeather(this)">⛈️ 천둥</button>
+          <button class="weather-btn" data-w="❄️" onclick="setWeather(this)">❄️ 눈</button>
+          <button class="weather-btn" data-w="🌫️" onclick="setWeather(this)">🌫️ 안개</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 선택 질문들 -->
+    <div class="card">
+      <div class="section-title">오늘 기록하고 싶은 것 <span style="font-size:11px;font-weight:400;color:var(--text-hint)">(선택)</span></div>
+      <div class="q-list" id="qList">
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">📌</span>
+            <span class="q-title">오늘 가장 기억에 남는 일</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q1" placeholder="오늘 있었던 일을 적어봐요..." rows="3"></textarea>
+          </div>
+        </div>
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">🍜</span>
+            <span class="q-title">오늘 가장 맛있게 먹은 것</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q2" placeholder="오늘 뭐가 제일 맛있었어요?" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">💸</span>
+            <span class="q-title">오늘의 소비 best/worst</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q3" placeholder="오늘 뭘 샀어요? 잘 산 것, 후회되는 것..." rows="2"></textarea>
+          </div>
+        </div>
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">😔</span>
+            <span class="q-title">오늘 아쉬웠던 것 / 반성</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q4" placeholder="오늘 아쉬운 점이 있었나요?" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">🎉</span>
+            <span class="q-title">오늘 너무 좋았던 것</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q5" placeholder="오늘 기분 좋았던 순간은요?" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">👏</span>
+            <span class="q-title">스스로에게 칭찬 한마디</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q6" placeholder="오늘의 나, 잘했어요 👏" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">💬</span>
+            <span class="q-title">오늘 하루를 마무리하는 나만의 명언</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q7" placeholder="오늘의 한마디..." rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-save" id="saveBtn" onclick="saveDiary()">일기 저장하기 🌙</button>
+    <div id="saveMsg" style="text-align:center;margin-top:8px;min-height:20px;font-size:13px;"></div>
+    <div id="aiBox" style="display:none" class="ai-box">
+      <div class="ai-label">🤖 AI 한줄 요약</div>
+      <div class="ai-text" id="aiText"></div>
+    </div>
+  </div>
+
+  <!-- 달력 탭 -->
+  <div class="tab-panel" id="tab-calendar">
+    <div class="card">
+      <div class="cal-header">
+        <button class="cal-nav" onclick="changeMonth(-1)">◀</button>
+        <span class="cal-month" id="calMonthLabel"></span>
+        <button class="cal-nav" onclick="changeMonth(1)">▶</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div id="calPopup" style="display:none" class="cal-popup"></div>
+    </div>
+    <div class="card" id="pastTodayCard" style="display:none">
+      <div class="section-title">📅 과거 오늘</div>
+      <div id="pastTodayList"></div>
+    </div>
+  </div>
+
+  <!-- 목록 탭 -->
+  <div class="tab-panel" id="tab-list">
+    <div class="diary-list" id="diaryList"></div>
+  </div>
+
+  <!-- 통계 탭 -->
+  <div class="tab-panel" id="tab-stats">
+    <div class="card">
+      <div id="streakBadge"></div>
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="section-title">이번 달 감정 분포</div>
+      <div class="emoji-stat-list" id="emojiStatList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
+
+let token = localStorage.getItem('diary_token') || '';
+let username = localStorage.getItem('diary_username') || '';
+let diaries = [];
+let selectedMoods = [];
+let selectedWeather = '';
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let authMode = 'login';
+const DAYS = ['월','화','수','목','금','토','일'];
+const Qs = ['q1','q2','q3','q4','q5','q6','q7'];
+
+// ── 인증 ─────────────────────────────────────────────
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((b,i)=>b.classList.toggle('active',(i===0&&mode==='login')||(i===1&&mode==='register')));
+  document.getElementById('authSubmitBtn').textContent = mode==='login'?'로그인':'회원가입';
+  document.getElementById('authErr').textContent='';
+}
+
+async function submitAuth() {
+  const u=document.getElementById('authUsername').value.trim();
+  const p=document.getElementById('authPassword').value;
+  const errEl=document.getElementById('authErr');
+  errEl.textContent='';
+  if(!u||!p){errEl.textContent='아이디와 비밀번호를 입력해주세요';return;}
+  const btn=document.getElementById('authSubmitBtn');
+  btn.disabled=true; btn.textContent='처리 중...';
+  try {
+    const res=await fetch(`${SERVER_URL}/auth/${authMode}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const data=await res.json();
+    if(!res.ok){errEl.textContent=data.error||'오류가 발생했어요';return;}
+    token=data.token; username=data.username;
+    localStorage.setItem('diary_token',token);
+    localStorage.setItem('diary_username',username);
+    showMain();
+  } catch(e){errEl.textContent='서버 연결 오류';}
+  finally{btn.disabled=false;btn.textContent=authMode==='login'?'로그인':'회원가입';}
+}
+
+async function logout() {
+  try{await fetch(`${SERVER_URL}/auth/logout`,{method:'POST',headers:{'Authorization':`Bearer ${token}`}});}catch(e){}
+  token='';username='';diaries=[];
+  localStorage.removeItem('diary_token');localStorage.removeItem('diary_username');
+  document.getElementById('mainScreen').style.display='none';
+  document.getElementById('authScreen').style.display='flex';
+}
+
+function showMain() {
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('mainScreen').style.display='block';
+  document.getElementById('headerUser').textContent=`${username}님의 일기`;
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('diaryDate').value=today;
+  document.getElementById('diaryDate').max=today;
+  getAutoWeather();
+  loadDiaries();
+}
+
+if(token) showMain();
+
+// ── 날씨 자동 ────────────────────────────────────────
+async function getAutoWeather() {
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try {
+      const {latitude:lat,longitude:lon}=pos.coords;
+      const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weathercode&timezone=auto`);
+      const data=await res.json();
+      const code=data.current?.weathercode??0;
+      let w='☀️';
+      if(code===0) w='☀️';
+      else if(code<=3) w='⛅';
+      else if(code<=48) w='🌫️';
+      else if(code<=67) w='🌧️';
+      else if(code<=77) w='❄️';
+      else if(code<=82) w='🌧️';
+      else w='⛈️';
+      document.getElementById('weatherAutoLabel').textContent=`(현재 위치 자동 감지됨)`;
+      const btn=document.querySelector(`.weather-btn[data-w="${w}"]`);
+      if(btn) { setWeather(btn); }
+    }catch(e){}
+  },()=>{});
+}
+
+function setWeather(btn) {
+  selectedWeather=btn.dataset.w;
+  document.querySelectorAll('.weather-btn').forEach(b=>b.classList.toggle('selected',b===btn));
+}
+
+// ── 이모지 피커 ──────────────────────────────────────
+function toggleMood(btn) {
+  const e=btn.dataset.mood;
+  if(selectedMoods.includes(e)){
+    selectedMoods=selectedMoods.filter(x=>x!==e);
+    btn.classList.remove('selected');
+  } else {
+    if(selectedMoods.length>=2) return;
+    selectedMoods.push(e);
+    btn.classList.add('selected');
+  }
+  document.querySelectorAll('.mood-btn').forEach(b=>{
+    if(!b.classList.contains('selected')) b.classList.toggle('disabled',selectedMoods.length>=2);
+  });
+  document.getElementById('moodDisplay').textContent=selectedMoods.length?`선택한 기분: ${selectedMoods.join(' ')}`:'선택한 기분: —';
+}
+
+// ── 질문 토글 ─────────────────────────────────────────
+function toggleQ(header) {
+  const body=header.nextElementSibling;
+  const toggle=header.querySelector('.q-toggle');
+  const isOpen=body.classList.toggle('open');
+  toggle.textContent=isOpen?'−':'+';
+}
+
+// ── 탭 ───────────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.tab-nav-btn').forEach((b,i)=>b.classList.toggle('active',['write','calendar','list','stats'][i]===t));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='calendar') renderCalendar();
+  if(t==='stats') renderStats();
+  if(t==='list') renderList();
+}
+
+// ── 일기 저장 ─────────────────────────────────────────
+async function saveDiary() {
+  const date=document.getElementById('diaryDate').value;
+  if(!date){alert('날짜를 선택해주세요');return;}
+  if(!selectedMoods.length){alert('오늘의 기분을 선택해주세요!');return;}
+  if(!selectedWeather){alert('날씨를 선택해주세요!');return;}
+
+  const qs={};
+  Qs.forEach(id=>{const v=document.getElementById(id).value.trim();if(v)qs[id]=v;});
+
+  const saveBtn=document.getElementById('saveBtn');
+  const saveMsg=document.getElementById('saveMsg');
+  saveBtn.disabled=true;
+  saveMsg.innerHTML='<span style="color:var(--text-sub)">저장 중...</span>';
+
+  try {
+    const res=await fetch(`${SERVER_URL}/diary`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body:JSON.stringify({date,mood:selectedMoods.join(''),weather:selectedWeather,qs})
+    });
+    const data=await res.json();
+    if(!res.ok){saveMsg.innerHTML=`<span class="msg-err">${data.error||'저장 실패'}</span>`;return;}
+
+    saveMsg.innerHTML='<span class="msg-ok">✓ 일기가 저장되었어요!</span>';
+    await loadDiaries();
+    getAISummary(date, selectedMoods.join(''), selectedWeather, qs);
+    resetForm();
+  }catch(e){saveMsg.innerHTML='<span class="msg-err">서버 연결 오류</span>';}
+  finally{saveBtn.disabled=false;}
+}
+
+function resetForm() {
+  selectedMoods=[];
+  document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected','disabled'));
+  document.getElementById('moodDisplay').textContent='선택한 기분: —';
+  Qs.forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('.q-body.open').forEach(b=>{
+    b.classList.remove('open');
+    b.previousElementSibling.querySelector('.q-toggle').textContent='+';
+  });
+}
+
+// ── AI 요약 ───────────────────────────────────────────
+async function getAISummary(date, mood, weather, qs) {
+  const aiBox=document.getElementById('aiBox');
+  const aiText=document.getElementById('aiText');
+  aiBox.style.display='block';
+  aiText.textContent='AI가 오늘 하루를 요약하는 중...';
+
+  const content=Object.values(qs).join(' / ');
+  if(!content){aiText.textContent='기록이 없어서 요약할 내용이 없어요 😊';return;}
+
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:150,
+        messages:[{role:'user',content:`다음은 오늘 하루 일기 내용이야. 기분: ${mood}, 날씨: ${weather}, 내용: ${content}. 이걸 따뜻하고 공감하는 톤으로 한 문장으로 요약해줘. 반드시 한국어로, 한 문장만.`}]
+      })
+    });
+    const data=await res.json();
+    const summary=data.content?.[0]?.text||'요약을 가져오지 못했어요';
+    aiText.textContent=summary;
+
+    await fetch(`${SERVER_URL}/diary/summary`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body:JSON.stringify({date,summary})
+    });
+    await loadDiaries();
+  }catch(e){aiText.textContent='AI 요약을 가져오지 못했어요';}
+}
+
+// ── 일기 로드 ─────────────────────────────────────────
+async function loadDiaries() {
+  try {
+    const res=await fetch(`${SERVER_URL}/diary`,{headers:{'Authorization':`Bearer ${token}`}});
+    if(res.status===401){logout();return;}
+    diaries=await res.json();
+  }catch(e){}
+}
+
+async function deleteDiary(date) {
+  if(!confirm('이 일기를 삭제할까요?')) return;
+  await fetch(`${SERVER_URL}/diary/${date}`,{method:'DELETE',headers:{'Authorization':`Bearer ${token}`}});
+  await loadDiaries();
+  renderList();
+}
+
+// ── 렌더링 ────────────────────────────────────────────
+function renderList() {
+  const el=document.getElementById('diaryList');
+  if(!diaries.length){el.innerHTML='<div class="empty">아직 일기가 없어요<br>오늘 첫 일기를 써봐요 📔</div>';return;}
+  el.innerHTML=diaries.map(d=>{
+    const qs=d.qs||{};
+    const qItems=Object.entries({q1:'📌',q2:'🍜',q3:'💸',q4:'😔',q5:'🎉',q6:'👏',q7:'💬'})
+      .filter(([k])=>qs[k])
+      .map(([k,icon])=>`<div class="diary-q-row">${icon} <span>${qs[k]}</span></div>`)
+      .join('');
+    return `<div class="diary-item">
+      <div class="diary-item-top">
+        <span class="diary-item-date">${d.date}</span>
+        <span class="diary-item-mood">${d.mood||''}</span>
+        <span class="diary-item-weather">${d.weather||''}</span>
+        <button class="diary-item-del" onclick="deleteDiary('${d.date}')">×</button>
+      </div>
+      ${d.summary?`<div class="diary-item-ai">${d.summary}</div>`:''}
+      ${qItems?`<div class="diary-item-qs">${qItems}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderCalendar() {
+  document.getElementById('calMonthLabel').textContent=`${calYear}년 ${calMonth+1}월`;
+  const grid=document.getElementById('calGrid');
+  const today=new Date();
+  const firstDay=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const startOffset=firstDay===0?6:firstDay-1;
+
+  let html=DAYS.map(d=>`<div class="cal-day-label">${d}</div>`).join('');
+  for(let i=0;i<startOffset;i++) html+=`<div class="cal-day"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const rec=diaries.find(r=>r.date===dateStr);
+    const isToday=today.getFullYear()===calYear&&today.getMonth()===calMonth&&today.getDate()===d;
+    if(rec){
+      html+=`<div class="cal-day has-record${isToday?' today':''}" onclick="showCalPopup('${dateStr}')">
+        <div class="cal-day-num">${d}</div>
+        <div class="cal-day-emoji">${rec.mood||''}</div>
+      </div>`;
+    } else {
+      html+=`<div class="cal-day${isToday?' today':''}"><div class="cal-day-num">${d}</div></div>`;
+    }
+  }
+  grid.innerHTML=html;
+  document.getElementById('calPopup').style.display='none';
+  renderPastToday();
+}
+
+function showCalPopup(dateStr) {
+  const rec=diaries.find(r=>r.date===dateStr);
+  if(!rec) return;
+  const popup=document.getElementById('calPopup');
+  const qs=rec.qs||{};
+  const qText=Object.entries({q1:'📌',q2:'🍜',q3:'💸',q4:'😔',q5:'🎉',q6:'👏',q7:'💬'})
+    .filter(([k])=>qs[k]).map(([k,icon])=>`${icon} ${qs[k]}`).join('<br>');
+  popup.innerHTML=`
+    <div class="cal-popup-date">${dateStr}</div>
+    <div class="cal-popup-mood">${rec.mood||''} ${rec.weather||''}</div>
+    ${rec.summary?`<div class="cal-popup-ai">${rec.summary}</div>`:''}
+    ${qText?`<div style="font-size:12px;color:var(--text-sub);margin-top:8px;line-height:1.8">${qText}</div>`:''}`;
+  popup.style.display='block';
+}
+
+function changeMonth(dir){
+  calMonth+=dir;
+  if(calMonth<0){calMonth=11;calYear--;}
+  if(calMonth>11){calMonth=0;calYear++;}
+  renderCalendar();
+}
+
+function renderPastToday() {
+  const today=new Date();
+  const mm=String(today.getMonth()+1).padStart(2,'0');
+  const dd=String(today.getDate()).padStart(2,'0');
+  const suffix=`-${mm}-${dd}`;
+  const past=diaries.filter(d=>d.date.endsWith(suffix)&&d.date!==today.toISOString().split('T')[0]);
+  const card=document.getElementById('pastTodayCard');
+  const list=document.getElementById('pastTodayList');
+  if(!past.length){card.style.display='none';return;}
+  card.style.display='block';
+  list.innerHTML=past.map(d=>`
+    <div class="past-today-box">
+      <div class="past-today-year">${d.date.split('-')[0]}년 오늘</div>
+      <div class="past-today-mood">${d.mood||''} ${d.weather||''}</div>
+      ${d.summary?`<div class="past-today-text">${d.summary}</div>`:''}
+    </div>`).join('');
+}
+
+function renderStats() {
+  const total=diaries.length;
+  const streak=calcStreak();
+  document.getElementById('streakBadge').innerHTML=streak>0?`<span class="streak-badge">🔥 ${streak}일 연속 기록 중!</span>`:'';
+
+  const thisMonth=diaries.filter(d=>{
+    const [y,m]=d.date.split('-');
+    return parseInt(y)===new Date().getFullYear()&&parseInt(m)===new Date().getMonth()+1;
+  }).length;
+
+  document.getElementById('statGrid').innerHTML=`
+    <div class="stat-box"><div class="stat-val">${total}</div><div class="stat-label">총 일기</div></div>
+    <div class="stat-box"><div class="stat-val">${thisMonth}</div><div class="stat-label">이번 달</div></div>
+    <div class="stat-box"><div class="stat-val">${streak}</div><div class="stat-label">연속 기록</div></div>
+    <div class="stat-box"><div class="stat-val">${total>0?Math.round(thisMonth/new Date().getDate()*100)+'%':'-'}</div><div class="stat-label">이번 달 달성률</div></div>`;
+
+  const moodCount={};
+  diaries.forEach(d=>(d.mood||'').split('').forEach(e=>{if(e.trim())moodCount[e]=(moodCount[e]||0)+1;}));
+  const sorted=Object.entries(moodCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const max=sorted[0]?.[1]||1;
+  document.getElementById('emojiStatList').innerHTML=sorted.length?sorted.map(([e,cnt])=>`
+    <div class="emoji-stat-item">
+      <span style="font-size:18px">${e}</span>
+      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${Math.round(cnt/max*100)}%"></div></div>
+      <span class="emoji-stat-cnt">${cnt}회</span>
+    </div>`).join(''):'<div class="empty">기록이 쌓이면 감정 통계가 나와요!</div>';
+}
+
+function calcStreak() {
+  if(!diaries.length) return 0;
+  const dates=new Set(diaries.map(d=>d.date));
+  let streak=0,d=new Date();
+  while(true){
+    const s=d.toISOString().split('T')[0];
+    if(dates.has(s)){streak++;d.setDate(d.getDate()-1);}
+    else break;
+  }
+  return streak;
+}
+</script>
+</body>
+</html>

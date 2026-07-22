@@ -723,3 +723,109 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
+
+# ── 일기 DB 초기화 ──────────────────────────────────────
+def init_diary_db():
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS diaries (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                date TEXT NOT NULL,
+                mood TEXT DEFAULT '',
+                weather TEXT DEFAULT '',
+                qs JSONB DEFAULT '{}',
+                summary TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE(user_id, date)
+            );
+        ''')
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"Diary DB init error: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
+try:
+    init_diary_db()
+except Exception as e:
+    print(f"Diary init error: {e}")
+
+# ── 일기 API ────────────────────────────────────────────
+@app.route('/diary', methods=['GET'])
+def get_diaries():
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM diaries WHERE user_id=%s ORDER BY date DESC', (user_id,))
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/diary', methods=['POST'])
+def save_diary():
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    import json
+    d = request.json or {}
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''INSERT INTO diaries (user_id, date, mood, weather, qs)
+            VALUES (%s,%s,%s,%s,%s)
+            ON CONFLICT (user_id, date) DO UPDATE
+            SET mood=EXCLUDED.mood, weather=EXCLUDED.weather, qs=EXCLUDED.qs''',
+            (user_id, d['date'], d.get('mood',''), d.get('weather',''),
+             json.dumps(d.get('qs',{}), ensure_ascii=False)))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/diary/summary', methods=['POST'])
+def save_summary():
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    d = request.json or {}
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE diaries SET summary=%s WHERE user_id=%s AND date=%s',
+                    (d.get('summary',''), user_id, d['date']))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/diary/<date>', methods=['DELETE'])
+def delete_diary(date):
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('DELETE FROM diaries WHERE user_id=%s AND date=%s', (user_id, date))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
