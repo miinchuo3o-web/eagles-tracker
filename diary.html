@@ -416,7 +416,7 @@ function showMain() {
   document.getElementById('authScreen').style.display='none';
   document.getElementById('mainScreen').style.display='block';
   document.getElementById('headerUser').textContent=`${username}님의 일기`;
-  const today=new Date().toISOString().split('T')[0];
+  const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
   document.getElementById('diaryDate').value=today;
   document.getElementById('diaryDate').max=today;
   getAutoWeather();
