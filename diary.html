@@ -205,26 +205,20 @@ textarea{resize:none;}
       <div class="fgroup">
         <label class="label">오늘의 기분 <span style="color:#F09595">*</span> <span style="font-size:10px;color:var(--text-hint);font-weight:400">(최대 2개)</span></label>
         <div class="mood-picker" id="moodPicker">
-          <div class="mood-section-label">감정</div>
           <div class="mood-row">
-            <button class="mood-btn" data-mood="😭" onclick="toggleMood(this)">😭</button>
-            <button class="mood-btn" data-mood="😤" onclick="toggleMood(this)">😤</button>
-            <button class="mood-btn" data-mood="💔" onclick="toggleMood(this)">💔</button>
-            <button class="mood-btn" data-mood="❤️" onclick="toggleMood(this)">❤️</button>
-            <button class="mood-btn" data-mood="😐" onclick="toggleMood(this)">😐</button>
-            <button class="mood-btn" data-mood="😴" onclick="toggleMood(this)">😴</button>
-            <button class="mood-btn" data-mood="🥲" onclick="toggleMood(this)">🥲</button>
-            <button class="mood-btn" data-mood="🙂" onclick="toggleMood(this)">🙂</button>
+            <button class="mood-btn" data-mood="😊" onclick="toggleMood(this)">😊</button>
             <button class="mood-btn" data-mood="😆" onclick="toggleMood(this)">😆</button>
             <button class="mood-btn" data-mood="🤩" onclick="toggleMood(this)">🤩</button>
             <button class="mood-btn" data-mood="🥹" onclick="toggleMood(this)">🥹</button>
-          </div>
-          <div class="mood-section-label">상황</div>
-          <div class="mood-row">
-            <button class="mood-btn" data-mood="🎉" onclick="toggleMood(this)">🎉</button>
-            <button class="mood-btn" data-mood="🔥" onclick="toggleMood(this)">🔥</button>
-            <button class="mood-btn" data-mood="☔" onclick="toggleMood(this)">☔</button>
-            <button class="mood-btn" data-mood="🍺" onclick="toggleMood(this)">🍺</button>
+            <button class="mood-btn" data-mood="❤️" onclick="toggleMood(this)">❤️</button>
+            <button class="mood-btn" data-mood="😐" onclick="toggleMood(this)">😐</button>
+            <button class="mood-btn" data-mood="😴" onclick="toggleMood(this)">😴</button>
+            <button class="mood-btn" data-mood="🤔" onclick="toggleMood(this)">🤔</button>
+            <button class="mood-btn" data-mood="😔" onclick="toggleMood(this)">😔</button>
+            <button class="mood-btn" data-mood="😭" onclick="toggleMood(this)">😭</button>
+            <button class="mood-btn" data-mood="😤" onclick="toggleMood(this)">😤</button>
+            <button class="mood-btn" data-mood="😰" onclick="toggleMood(this)">😰</button>
+            <button class="mood-btn" data-mood="💔" onclick="toggleMood(this)">💔</button>
           </div>
         </div>
         <div class="mood-selected-display" id="moodDisplay">선택한 기분: —</div>
@@ -323,10 +317,6 @@ textarea{resize:none;}
 
     <button class="btn-save" id="saveBtn" onclick="saveDiary()">일기 저장하기 🌙</button>
     <div id="saveMsg" style="text-align:center;margin-top:8px;min-height:20px;font-size:13px;"></div>
-    <div id="aiBox" style="display:none" class="ai-box">
-      <div class="ai-label">🤖 AI 한줄 요약</div>
-      <div class="ai-text" id="aiText"></div>
-    </div>
   </div>
 
   <!-- 달력 탭 -->
@@ -363,7 +353,7 @@ textarea{resize:none;}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 let token = localStorage.getItem('diary_token') || '';
 let username = localStorage.getItem('diary_username') || '';
@@ -416,7 +406,7 @@ function showMain() {
   document.getElementById('authScreen').style.display='none';
   document.getElementById('mainScreen').style.display='block';
   document.getElementById('headerUser').textContent=`${username}님의 일기`;
-  const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
+  const today=new Date().toISOString().split('T')[0];
   document.getElementById('diaryDate').value=today;
   document.getElementById('diaryDate').max=today;
   getAutoWeather();
@@ -513,9 +503,8 @@ async function saveDiary() {
     const data=await res.json();
     if(!res.ok){saveMsg.innerHTML=`<span class="msg-err">${data.error||'저장 실패'}</span>`;return;}
 
-    saveMsg.innerHTML='<span class="msg-ok">✓ 일기가 저장되었어요!</span>';
+    saveMsg.innerHTML='<span class="msg-ok">✓ 일기가 저장되었어요! 🌙</span>';
     await loadDiaries();
-    getAISummary(date, selectedMoods.join(''), selectedWeather, qs);
     resetForm();
   }catch(e){saveMsg.innerHTML='<span class="msg-err">서버 연결 오류</span>';}
   finally{saveBtn.disabled=false;}
@@ -688,16 +677,49 @@ function renderStats() {
     <div class="stat-box"><div class="stat-val">${streak}</div><div class="stat-label">연속 기록</div></div>
     <div class="stat-box"><div class="stat-val">${total>0?Math.round(thisMonth/new Date().getDate()*100)+'%':'-'}</div><div class="stat-label">이번 달 달성률</div></div>`;
 
-  const moodCount={};
-  diaries.forEach(d=>(d.mood||'').split('').forEach(e=>{if(e.trim())moodCount[e]=(moodCount[e]||0)+1;}));
-  const sorted=Object.entries(moodCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const max=sorted[0]?.[1]||1;
-  document.getElementById('emojiStatList').innerHTML=sorted.length?sorted.map(([e,cnt])=>`
+  const GOOD_MOODS = ['😊','😆','🤩','🥹','❤️'];
+  const OKAY_MOODS = ['😐','😴','🤔'];
+  const ROUGH_MOODS = ['😔','😭','😤','😰','💔'];
+
+  const thisMonthDiaries = diaries.filter(d=>{
+    const [y,m]=d.date.split('-');
+    return parseInt(y)===new Date().getFullYear()&&parseInt(m)===new Date().getMonth()+1;
+  });
+
+  let goodCnt=0, okayCnt=0, roughCnt=0;
+  thisMonthDiaries.forEach(d=>{
+    const moods=[...(d.mood||'')];
+    const mainMood=moods[0]||'';
+    if(GOOD_MOODS.includes(mainMood)) goodCnt++;
+    else if(OKAY_MOODS.includes(mainMood)) okayCnt++;
+    else if(ROUGH_MOODS.includes(mainMood)) roughCnt++;
+  });
+  const total3=goodCnt+okayCnt+roughCnt||1;
+  const goodPct=Math.round(goodCnt/total3*100);
+  const okayPct=Math.round(okayCnt/total3*100);
+  const roughPct=100-goodPct-okayPct;
+
+  document.getElementById('emojiStatList').innerHTML=`
     <div class="emoji-stat-item">
-      <span style="font-size:18px">${e}</span>
-      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${Math.round(cnt/max*100)}%"></div></div>
-      <span class="emoji-stat-cnt">${cnt}회</span>
-    </div>`).join(''):'<div class="empty">기록이 쌓이면 감정 통계가 나와요!</div>';
+      <span style="font-size:18px">❤️</span>
+      <span style="font-size:12px;color:var(--text-sub);min-width:44px">Good</span>
+      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${goodPct}%"></div></div>
+      <span class="emoji-stat-cnt">${goodPct}%</span>
+    </div>
+    <div class="emoji-stat-item">
+      <span style="font-size:18px">🩶</span>
+      <span style="font-size:12px;color:var(--text-sub);min-width:44px">Okay</span>
+      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${okayPct}%;background:var(--text-hint)"></div></div>
+      <span class="emoji-stat-cnt">${okayPct}%</span>
+    </div>
+    <div class="emoji-stat-item">
+      <span style="font-size:18px">🖤</span>
+      <span style="font-size:12px;color:var(--text-sub);min-width:44px">Rough</span>
+      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${roughPct}%;background:#444441"></div></div>
+      <span class="emoji-stat-cnt">${roughPct}%</span>
+    </div>
+    ${thisMonthDiaries.length===0?'<div class="empty" style="padding:16px">이번 달 일기가 없어요!</div>':''}
+  `;
 }
 
 function calcStreak() {
