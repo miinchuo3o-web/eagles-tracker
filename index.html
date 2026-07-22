@@ -203,7 +203,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .pw-ok{color:var(--green);font-size:12px;margin-top:6px;}
 .photo-upload-area{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 
-/* 선수 덕질 */
+/* 뉴스 */
+.news-item{padding:12px 0;border-bottom:.5px solid var(--border);}
+.news-item:last-child{border-bottom:none;}
+.news-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;line-height:1.4;cursor:pointer;}
+.news-title:hover{color:var(--primary);}
+.news-meta{font-size:11px;color:var(--text-hint);display:flex;gap:8px;}
+.news-loading{text-align:center;color:var(--text-sub);font-size:13px;padding:24px;}
 .player-search-box{background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;}
 .player-search-result-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:white;border-radius:var(--radius-sm);border:1px solid var(--border);margin-top:6px;}
 .psr-info{flex:1;}
@@ -496,6 +502,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
         <button class="stat-nav-btn" onclick="switchStatNav('gallery')">📷 사진첩</button>
         <button class="stat-nav-btn" onclick="switchStatNav('money')">지출</button>
         <button class="stat-nav-btn" onclick="switchStatNav('milestone')">마일스톤</button>
+        <button class="stat-nav-btn" onclick="switchStatNav('news')">📰 뉴스</button>
       </div>
 
       <!-- 📅 달력 -->
@@ -560,6 +567,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
         </div>
         <div id="favPlayerList" style="margin-top:14px"></div>
       </div>
+
+      <!-- 📰 뉴스 -->
+      <div class="stat-section" id="stat-news">
+        <div id="newsList"><div class="empty">뉴스 탭을 클릭하면 최신 기사를 불러와요 📰</div></div>
+      </div>
     
     <div class="card">
       <div class="section-title">기록 목록</div>
@@ -572,10 +584,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 <div class="pw-modal" id="pwModal">
   <div class="pw-card">
     <div class="pw-title">🔒 비밀번호 변경</div>
-    <div class="pw-field">
-      <label>현재 비밀번호</label>
-      <input type="password" id="currentPw" placeholder="현재 비밀번호 입력"/>
-    </div>
     <div class="pw-field">
       <label>새 비밀번호</label>
       <input type="password" id="newPw" placeholder="새 비밀번호 (4자 이상)"/>
@@ -601,7 +609,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -772,13 +780,14 @@ function switchTab(t){
 }
 function switchStatNav(t){
   currentStatNav=t;
-  const tabs=['calendar','overview','player','vs','day','gallery','money','milestone'];
+  const tabs=['calendar','overview','player','vs','day','gallery','money','milestone','news'];
   document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));
   document.querySelectorAll('.stat-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('stat-'+t).classList.add('active');
   if(t==='gallery') loadGallery();
   if(t==='player') loadFavPlayers();
   if(t==='calendar') renderCalendar();
+  if(t==='news') loadNews();
 }
 function setEditResult(v){editResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('et-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
 function setManResult(v){manResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('mt-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
@@ -1007,6 +1016,40 @@ function openPhotoModal(url, info) {
   document.getElementById('photoModal').classList.add('open');
 }
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
+
+// ── 뉴스 ──────────────────────────────────────────────
+let newsLoaded = false;
+async function loadNews() {
+  if(newsLoaded) return;
+  const el = document.getElementById('newsList');
+  el.innerHTML = '<div class="news-loading">📰 최신 기사 불러오는 중...</div>';
+  try {
+    const res = await fetch(`${SERVER_URL}/news/${favoriteTeam}`);
+    const data = await res.json();
+    if(!data.news?.length) {
+      el.innerHTML = '<div class="empty">기사를 찾지 못했어요</div>';
+      return;
+    }
+    const t = TEAMS[favoriteTeam];
+    el.innerHTML = `
+      <div style="font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:12px;">
+        ${t?.emoji||'⚾'} ${data.team} 최신 뉴스
+      </div>
+      ${data.news.map(n => {
+        const date = n.pub_date ? new Date(n.pub_date).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        return `<div class="news-item">
+          <div class="news-title" onclick="window.open('${n.link}','_blank')">${n.title}</div>
+          <div class="news-meta">
+            <span>${n.source||''}</span>
+            <span>${date}</span>
+          </div>
+        </div>`;
+      }).join('')}`;
+    newsLoaded = true;
+  } catch(e) {
+    el.innerHTML = '<div class="empty">기사를 불러오지 못했어요 😢</div>';
+  }
+}
 
 // ── 달력 ──────────────────────────────────────────────
 let calYear = new Date().getFullYear();
@@ -1416,7 +1459,7 @@ function renderList(){
   }).join('');
 }
 
-const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
+const today=new Date().toISOString().split('T')[0];
 document.getElementById('autoDate').max=today;
 document.getElementById('manDate').max=today;
 </script>

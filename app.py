@@ -231,20 +231,14 @@ def change_password():
     if not user_id:
         return jsonify({'error': '로그인이 필요해요'}), 401
     data = request.json or {}
-    current_pw = data.get('current_password', '')
     new_pw = data.get('new_password', '')
-    if not current_pw or not new_pw:
-        return jsonify({'error': '현재 비밀번호와 새 비밀번호를 입력해주세요'}), 400
+    if not new_pw:
+        return jsonify({'error': '새 비밀번호를 입력해주세요'}), 400
     if len(new_pw) < 4:
         return jsonify({'error': '새 비밀번호는 4자 이상이어야 해요'}), 400
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('SELECT id FROM users WHERE id=%s AND password_hash=%s', (user_id, hash_pw(current_pw)))
-        if not cur.fetchone():
-            cur.close()
-            conn.close()
-            return jsonify({'error': '현재 비밀번호가 틀렸어요'}), 401
         cur.execute('UPDATE users SET password_hash=%s WHERE id=%s', (hash_pw(new_pw), user_id))
         conn.commit()
         cur.close()
@@ -714,6 +708,33 @@ def remove_favorite_player(player_id):
         cur.close()
         conn.close()
         return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/news/<team_code>')
+def get_news(team_code):
+    team_names = {
+        'HH': '한화 이글스', 'LT': '롯데 자이언츠', 'LG': 'LG 트윈스',
+        'OB': '두산 베어스', 'SS': '삼성 라이온즈', 'SK': 'SSG 랜더스',
+        'NC': 'NC 다이노스', 'KT': 'KT 위즈', 'WO': '키움 히어로즈', 'HT': 'KIA 타이거즈'
+    }
+    team_name = team_names.get(team_code)
+    if not team_name:
+        return jsonify({'error': '알 수 없는 팀'}), 400
+    try:
+        import xml.etree.ElementTree as ET
+        from urllib.parse import quote
+        url = f"https://news.google.com/rss/search?q={quote(team_name)}&hl=ko&gl=KR&ceid=KR:ko"
+        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+        root = ET.fromstring(res.content)
+        items = []
+        for item in root.findall('.//item')[:20]:
+            title = item.findtext('title', '')
+            link = item.findtext('link', '')
+            pub_date = item.findtext('pubDate', '')
+            source = item.findtext('source', '')
+            items.append({'title': title, 'link': link, 'pub_date': pub_date, 'source': source})
+        return jsonify({'team': team_name, 'news': items})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
