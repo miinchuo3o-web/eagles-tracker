@@ -151,6 +151,10 @@ textarea{resize:none;}
 .msg-ok{color:#5DCAA5;font-size:13px;}
 .msg-err{color:#F09595;font-size:13px;}
 .streak-badge{display:inline-block;background:var(--primary-dark);color:var(--primary-light);padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:12px;}
+.mixed-popup{background:var(--card2);border-radius:var(--radius);padding:14px;margin-top:8px;border:.5px solid var(--border);display:none;}
+.mixed-popup-title{font-size:13px;color:var(--text-sub);margin-bottom:10px;text-align:center;}
+.mixed-popup-btns{display:flex;flex-direction:column;gap:6px;}
+.mixed-popup-btn{padding:10px 12px;border-radius:var(--radius-sm);border:.5px solid var(--border);background:var(--card);color:var(--text);font-size:13px;cursor:pointer;text-align:left;}
 </style>
 </head>
 <body>
@@ -205,23 +209,39 @@ textarea{resize:none;}
       <div class="fgroup">
         <label class="label">오늘의 기분 <span style="color:#F09595">*</span> <span style="font-size:10px;color:var(--text-hint);font-weight:400">(최대 2개)</span></label>
         <div class="mood-picker" id="moodPicker">
+          <div class="mood-section-label">❤️ Good — 좋은 날</div>
           <div class="mood-row">
-            <button class="mood-btn" data-mood="😊" onclick="toggleMood(this)">😊</button>
-            <button class="mood-btn" data-mood="😆" onclick="toggleMood(this)">😆</button>
-            <button class="mood-btn" data-mood="🤩" onclick="toggleMood(this)">🤩</button>
-            <button class="mood-btn" data-mood="🥹" onclick="toggleMood(this)">🥹</button>
-            <button class="mood-btn" data-mood="❤️" onclick="toggleMood(this)">❤️</button>
-            <button class="mood-btn" data-mood="😐" onclick="toggleMood(this)">😐</button>
-            <button class="mood-btn" data-mood="😴" onclick="toggleMood(this)">😴</button>
-            <button class="mood-btn" data-mood="🤔" onclick="toggleMood(this)">🤔</button>
-            <button class="mood-btn" data-mood="😔" onclick="toggleMood(this)">😔</button>
-            <button class="mood-btn" data-mood="😭" onclick="toggleMood(this)">😭</button>
-            <button class="mood-btn" data-mood="😤" onclick="toggleMood(this)">😤</button>
-            <button class="mood-btn" data-mood="😰" onclick="toggleMood(this)">😰</button>
-            <button class="mood-btn" data-mood="💔" onclick="toggleMood(this)">💔</button>
+            <button class="mood-btn" data-mood="😊" data-cat="good" onclick="toggleMood(this)">😊</button>
+            <button class="mood-btn" data-mood="😆" data-cat="good" onclick="toggleMood(this)">😆</button>
+            <button class="mood-btn" data-mood="🤩" data-cat="good" onclick="toggleMood(this)">🤩</button>
+            <button class="mood-btn" data-mood="🥹" data-cat="good" onclick="toggleMood(this)">🥹</button>
+            <button class="mood-btn" data-mood="❤️" data-cat="good" onclick="toggleMood(this)">❤️</button>
+          </div>
+          <div class="mood-section-label" style="margin-top:6px">🩶 Okay — 그냥 그런 날</div>
+          <div class="mood-row">
+            <button class="mood-btn" data-mood="😐" data-cat="okay" onclick="toggleMood(this)">😐</button>
+            <button class="mood-btn" data-mood="😴" data-cat="okay" onclick="toggleMood(this)">😴</button>
+            <button class="mood-btn" data-mood="🤔" data-cat="okay" onclick="toggleMood(this)">🤔</button>
+          </div>
+          <div class="mood-section-label" style="margin-top:6px">🖤 Rough — 힘든 날</div>
+          <div class="mood-row">
+            <button class="mood-btn" data-mood="😔" data-cat="rough" onclick="toggleMood(this)">😔</button>
+            <button class="mood-btn" data-mood="😭" data-cat="rough" onclick="toggleMood(this)">😭</button>
+            <button class="mood-btn" data-mood="😤" data-cat="rough" onclick="toggleMood(this)">😤</button>
+            <button class="mood-btn" data-mood="😰" data-cat="rough" onclick="toggleMood(this)">😰</button>
+            <button class="mood-btn" data-mood="💔" data-cat="rough" onclick="toggleMood(this)">💔</button>
           </div>
         </div>
         <div class="mood-selected-display" id="moodDisplay">선택한 기분: —</div>
+        <div class="mixed-popup" id="mixedPopup">
+          <div class="mixed-popup-title">엇, 기분이 복잡한 하루였나요? 🤔<br><span style="font-size:11px;">오늘 하루를 어떻게 기록할까요?</span></div>
+          <div class="mixed-popup-btns">
+            <button class="mixed-popup-btn" onclick="selectMixedCat('good')">❤️ Good day 로 할게요</button>
+            <button class="mixed-popup-btn" onclick="selectMixedCat('okay')">🩶 Okay day 로 할게요</button>
+            <button class="mixed-popup-btn" onclick="selectMixedCat('rough')">🖤 Rough day 로 할게요</button>
+            <button class="mixed-popup-btn" onclick="selectMixedCat('mixed')">🌀 그냥 복잡한 하루예요</button>
+          </div>
+        </div>
       </div>
 
       <div class="fgroup">
@@ -312,6 +332,26 @@ textarea{resize:none;}
             <textarea id="q7" placeholder="오늘의 한마디..." rows="2"></textarea>
           </div>
         </div>
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">💳</span>
+            <span class="q-title">오늘의 충동구매</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q8" placeholder="오늘 또 질렀나요...? 🛍️" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="q-item">
+          <div class="q-header" onclick="toggleQ(this)">
+            <span class="q-icon">🏆</span>
+            <span class="q-title">오늘의 정신승리</span>
+            <span class="q-toggle">+</span>
+          </div>
+          <div class="q-body">
+            <textarea id="q9" placeholder="뭐든 합리화 가능해요 ㅋㅋ 😤" rows="2"></textarea>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -353,7 +393,7 @@ textarea{resize:none;}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 let token = localStorage.getItem('diary_token') || '';
 let username = localStorage.getItem('diary_username') || '';
@@ -364,7 +404,28 @@ let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 let authMode = 'login';
 const DAYS = ['월','화','수','목','금','토','일'];
-const Qs = ['q1','q2','q3','q4','q5','q6','q7'];
+const Qs = ['q1','q2','q3','q4','q5','q6','q7','q8','q9'];
+const Q_ICONS = {q1:'📌',q2:'🍜',q3:'💸',q4:'😔',q5:'🎉',q6:'👏',q7:'💬',q8:'💳',q9:'🏆'};
+const GOOD_MOODS = ['😊','😆','🤩','🥹','❤️'];
+const OKAY_MOODS = ['😐','😴','🤔'];
+const ROUGH_MOODS = ['😔','😭','😤','😰','💔'];
+
+function getMoodCat(mood) {
+  if(GOOD_MOODS.includes(mood)) return 'good';
+  if(OKAY_MOODS.includes(mood)) return 'okay';
+  if(ROUGH_MOODS.includes(mood)) return 'rough';
+  return 'mixed';
+}
+
+function getDayCat(moods) {
+  if(!moods.length) return '';
+  const cats = [...new Set(moods.map(getMoodCat))];
+  if(cats.length === 1) return cats[0];
+  if(cats.includes('good') && cats.includes('rough')) return 'mixed';
+  if(cats.includes('good')) return 'good';
+  if(cats.includes('rough')) return 'rough';
+  return 'okay';
+}
 
 // ── 인증 ─────────────────────────────────────────────
 function switchAuthTab(mode) {
@@ -445,20 +506,42 @@ function setWeather(btn) {
 }
 
 // ── 이모지 피커 ──────────────────────────────────────
+let mixedCatOverride = '';
+
 function toggleMood(btn) {
-  const e=btn.dataset.mood;
-  if(selectedMoods.includes(e)){
-    selectedMoods=selectedMoods.filter(x=>x!==e);
+  const e = btn.dataset.mood;
+  if(selectedMoods.includes(e)) {
+    selectedMoods = selectedMoods.filter(x => x !== e);
     btn.classList.remove('selected');
+    mixedCatOverride = '';
   } else {
-    if(selectedMoods.length>=2) return;
+    if(selectedMoods.length >= 2) return;
     selectedMoods.push(e);
     btn.classList.add('selected');
+    // 카테고리 섞였는지 체크
+    if(selectedMoods.length === 2) {
+      const cats = [...new Set(selectedMoods.map(getMoodCat))];
+      if(cats.includes('good') && cats.includes('rough')) {
+        showMixedPopup();
+      }
+    }
   }
-  document.querySelectorAll('.mood-btn').forEach(b=>{
-    if(!b.classList.contains('selected')) b.classList.toggle('disabled',selectedMoods.length>=2);
+  document.querySelectorAll('.mood-btn').forEach(b => {
+    if(!b.classList.contains('selected')) b.classList.toggle('disabled', selectedMoods.length >= 2);
   });
-  document.getElementById('moodDisplay').textContent=selectedMoods.length?`선택한 기분: ${selectedMoods.join(' ')}`:'선택한 기분: —';
+  document.getElementById('moodDisplay').textContent = selectedMoods.length ? `선택한 기분: ${selectedMoods.join(' ')}` : '선택한 기분: —';
+}
+
+function showMixedPopup() {
+  const popup = document.getElementById('mixedPopup');
+  popup.style.display = 'block';
+}
+
+function selectMixedCat(cat) {
+  mixedCatOverride = cat;
+  document.getElementById('mixedPopup').style.display = 'none';
+  const labels = {good:'❤️ Good day', okay:'🩶 Okay day', rough:'🖤 Rough day', mixed:'🌀 복잡한 하루'};
+  document.getElementById('moodDisplay').textContent = `선택한 기분: ${selectedMoods.join(' ')} → ${labels[cat]}`;
 }
 
 // ── 질문 토글 ─────────────────────────────────────────
@@ -498,7 +581,7 @@ async function saveDiary() {
     const res=await fetch(`${SERVER_URL}/diary`,{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-      body:JSON.stringify({date,mood:selectedMoods.join(''),weather:selectedWeather,qs})
+      body:JSON.stringify({date,mood:selectedMoods.join(''),weather:selectedWeather,qs,day_cat:mixedCatOverride||getDayCat(selectedMoods)})
     });
     const data=await res.json();
     if(!res.ok){saveMsg.innerHTML=`<span class="msg-err">${data.error||'저장 실패'}</span>`;return;}
@@ -512,6 +595,8 @@ async function saveDiary() {
 
 function resetForm() {
   selectedMoods=[];
+  mixedCatOverride='';
+  document.getElementById('mixedPopup').style.display='none';
   document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('selected','disabled'));
   document.getElementById('moodDisplay').textContent='선택한 기분: —';
   Qs.forEach(id=>document.getElementById(id).value='');
@@ -576,7 +661,7 @@ function renderList() {
   if(!diaries.length){el.innerHTML='<div class="empty">아직 일기가 없어요<br>오늘 첫 일기를 써봐요 📔</div>';return;}
   el.innerHTML=diaries.map(d=>{
     const qs=d.qs||{};
-    const qItems=Object.entries({q1:'📌',q2:'🍜',q3:'💸',q4:'😔',q5:'🎉',q6:'👏',q7:'💬'})
+    const qItems=Object.entries({q1:'📌',q2:'🍜',q3:'💸',q4:'😔',q5:'🎉',q6:'👏',q7:'💬',q8:'💳',q9:'🏆'})
       .filter(([k])=>qs[k])
       .map(([k,icon])=>`<div class="diary-q-row">${icon} <span>${qs[k]}</span></div>`)
       .join('');
@@ -601,6 +686,13 @@ function renderCalendar() {
   const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
   const startOffset=firstDay===0?6:firstDay-1;
 
+  const CAL_COLORS = {
+    good:  {bg:'#854F0B', num:'#FFF8E8', border:'none'},
+    okay:  {bg:'#4A4945', num:'#D3D1C7', border:'none'},
+    rough: {bg:'#2E2016', num:'#A87848', border:'1px solid #5a3a1a'},
+    mixed: {bg:'#1A2E30', num:'#7AB8BC', border:'1px solid #3a6a70'},
+  };
+
   let html=DAYS.map(d=>`<div class="cal-day-label">${d}</div>`).join('');
   for(let i=0;i<startOffset;i++) html+=`<div class="cal-day"></div>`;
   for(let d=1;d<=daysInMonth;d++){
@@ -608,8 +700,11 @@ function renderCalendar() {
     const rec=diaries.find(r=>r.date===dateStr);
     const isToday=today.getFullYear()===calYear&&today.getMonth()===calMonth&&today.getDate()===d;
     if(rec){
-      html+=`<div class="cal-day has-record${isToday?' today':''}" onclick="showCalPopup('${dateStr}')">
-        <div class="cal-day-num">${d}</div>
+      const cat=rec.day_cat||getDayCat([...(rec.mood||'')]);
+      const col=CAL_COLORS[cat]||CAL_COLORS.okay;
+      html+=`<div class="cal-day has-record${isToday?' today':''}" onclick="showCalPopup('${dateStr}')"
+        style="background:${col.bg};border:${col.border};">
+        <div class="cal-day-num" style="color:${col.num}">${d}</div>
         <div class="cal-day-emoji">${rec.mood||''}</div>
       </div>`;
     } else {
@@ -626,7 +721,7 @@ function showCalPopup(dateStr) {
   if(!rec) return;
   const popup=document.getElementById('calPopup');
   const qs=rec.qs||{};
-  const qText=Object.entries({q1:'📌',q2:'🍜',q3:'💸',q4:'😔',q5:'🎉',q6:'👏',q7:'💬'})
+  const qText=Object.entries({q1:'📌',q2:'🍜',q3:'💸',q4:'😔',q5:'🎉',q6:'👏',q7:'💬',q8:'💳',q9:'🏆'})
     .filter(([k])=>qs[k]).map(([k,icon])=>`${icon} ${qs[k]}`).join('<br>');
   popup.innerHTML=`
     <div class="cal-popup-date">${dateStr}</div>
@@ -686,37 +781,44 @@ function renderStats() {
     return parseInt(y)===new Date().getFullYear()&&parseInt(m)===new Date().getMonth()+1;
   });
 
-  let goodCnt=0, okayCnt=0, roughCnt=0;
+  let goodCnt=0, okayCnt=0, roughCnt=0, mixedCnt=0;
   thisMonthDiaries.forEach(d=>{
-    const moods=[...(d.mood||'')];
-    const mainMood=moods[0]||'';
-    if(GOOD_MOODS.includes(mainMood)) goodCnt++;
-    else if(OKAY_MOODS.includes(mainMood)) okayCnt++;
-    else if(ROUGH_MOODS.includes(mainMood)) roughCnt++;
+    const cat=d.day_cat||getDayCat([...(d.mood||'')]);
+    if(cat==='good') goodCnt++;
+    else if(cat==='okay') okayCnt++;
+    else if(cat==='rough') roughCnt++;
+    else if(cat==='mixed') mixedCnt++;
   });
-  const total3=goodCnt+okayCnt+roughCnt||1;
+  const total3=goodCnt+okayCnt+roughCnt+mixedCnt||1;
   const goodPct=Math.round(goodCnt/total3*100);
   const okayPct=Math.round(okayCnt/total3*100);
-  const roughPct=100-goodPct-okayPct;
+  const roughPct=Math.round(roughCnt/total3*100);
+  const mixedPct=100-goodPct-okayPct-roughPct;
 
   document.getElementById('emojiStatList').innerHTML=`
     <div class="emoji-stat-item">
       <span style="font-size:18px">❤️</span>
       <span style="font-size:12px;color:var(--text-sub);min-width:44px">Good</span>
-      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${goodPct}%"></div></div>
+      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${goodPct}%;background:#BA7517"></div></div>
       <span class="emoji-stat-cnt">${goodPct}%</span>
     </div>
     <div class="emoji-stat-item">
       <span style="font-size:18px">🩶</span>
       <span style="font-size:12px;color:var(--text-sub);min-width:44px">Okay</span>
-      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${okayPct}%;background:var(--text-hint)"></div></div>
+      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${okayPct}%;background:#888780"></div></div>
       <span class="emoji-stat-cnt">${okayPct}%</span>
     </div>
     <div class="emoji-stat-item">
       <span style="font-size:18px">🖤</span>
       <span style="font-size:12px;color:var(--text-sub);min-width:44px">Rough</span>
-      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${roughPct}%;background:#444441"></div></div>
+      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${roughPct}%;background:#5a3a1a"></div></div>
       <span class="emoji-stat-cnt">${roughPct}%</span>
+    </div>
+    <div class="emoji-stat-item">
+      <span style="font-size:18px">🌀</span>
+      <span style="font-size:12px;color:var(--text-sub);min-width:44px">Mixed</span>
+      <div class="emoji-stat-bar-wrap"><div class="emoji-stat-bar" style="width:${mixedPct}%;background:#3a6a70"></div></div>
+      <span class="emoji-stat-cnt">${mixedPct}%</span>
     </div>
     ${thisMonthDiaries.length===0?'<div class="empty" style="padding:16px">이번 달 일기가 없어요!</div>':''}
   `;

@@ -760,10 +760,18 @@ def init_diary_db():
                 weather TEXT DEFAULT '',
                 qs JSONB DEFAULT '{}',
                 summary TEXT DEFAULT '',
+                day_cat TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT NOW(),
                 UNIQUE(user_id, date)
             );
         ''')
+        conn.commit()
+        # day_cat 컬럼 추가 (기존 DB 호환)
+        try:
+            cur.execute("ALTER TABLE diaries ADD COLUMN IF NOT EXISTS day_cat TEXT DEFAULT ''")
+            conn.commit()
+        except:
+            conn.rollback()
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -804,12 +812,12 @@ def save_diary():
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('''INSERT INTO diaries (user_id, date, mood, weather, qs)
-            VALUES (%s,%s,%s,%s,%s)
+        cur.execute('''INSERT INTO diaries (user_id, date, mood, weather, qs, day_cat)
+            VALUES (%s,%s,%s,%s,%s,%s)
             ON CONFLICT (user_id, date) DO UPDATE
-            SET mood=EXCLUDED.mood, weather=EXCLUDED.weather, qs=EXCLUDED.qs''',
+            SET mood=EXCLUDED.mood, weather=EXCLUDED.weather, qs=EXCLUDED.qs, day_cat=EXCLUDED.day_cat''',
             (user_id, d['date'], d.get('mood',''), d.get('weather',''),
-             json.dumps(d.get('qs',{}), ensure_ascii=False)))
+             json.dumps(d.get('qs',{}), ensure_ascii=False), d.get('day_cat','')))
         conn.commit()
         cur.close()
         conn.close()
