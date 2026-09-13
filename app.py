@@ -737,7 +737,7 @@ def get_schedule(team_code):
                 raw = game_id[:8]  # YYYYMMDD
                 date_set.add(f"{raw[:4]}-{raw[4:6]}-{raw[6:8]}")
 
-        formatted = sorted(date_set)
+        formatted = sorted(d for d in date_set if d <= datetime.now(KST).strftime('%Y-%m-%d'))
         return jsonify({'dates': formatted, 'team': team_code})
     except Exception as e:
         return jsonify({'dates': [], 'error': str(e)}), 200
@@ -873,6 +873,9 @@ def get_relay(team_code):
                     pitches.append({'text': text, 'speed': speed, 'stuff': stuff, 'result': opt.get('pitchResult', '')})
                 elif t == 13:
                     result_text = text
+                    # 마지막 pitch가 타격(H)이면 거기에 결과 붙이기
+                    if pitches and pitches[-1]['result'] == 'H':
+                        pitches[-1]['hit_result'] = text
 
             if inning_key not in innings_data:
                 innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
@@ -1021,6 +1024,8 @@ def get_relay(team_code):
                     })
                 elif t == 13:
                     result_text = text
+                    if pitches and pitches[-1]['result'] == 'H':
+                        pitches[-1]['hit_result'] = text
 
             if inning_key not in innings_data:
                 innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}

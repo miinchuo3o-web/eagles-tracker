@@ -634,7 +634,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -1174,11 +1174,13 @@ function renderInningPlays(inningsData) {
       const pitchesHtml = r.pitches.map((p,i)=>{
         const pr = PITCH_MAP[p.result]||p.text;
         const cls = ['T','S','F'].includes(p.result)?'strike':p.result==='B'?'ball':'';
+        const hitResult = p.hit_result ? `<span class="relay-pitch-stuff" style="color:var(--text)">${p.hit_result.replace(/^.*?: /,'')}</span>` : '';
         return `<div class="relay-pitch-row">
           <span class="relay-pitch-num">${i+1}구</span>
           <span class="relay-pitch-result ${cls}">${pr}</span>
           ${p.stuff?`<span class="relay-pitch-stuff">${p.stuff}</span>`:''}
           ${p.speed?`<span class="relay-pitch-speed">${p.speed}km/h</span>`:''}
+          ${hitResult}
         </div>`;
       }).join('');
       const resultHtml = r.result_text ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
