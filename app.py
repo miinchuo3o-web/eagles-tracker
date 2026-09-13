@@ -571,6 +571,7 @@ def parse_relay_innings(text_relays):
         bat_result = ''
         pitch_count = 0
         inline_events_pending = []
+        last_was_result = False  # type=23/13 직후 플래그
 
         for opt in options:
             t = opt.get('type')
@@ -579,6 +580,7 @@ def parse_relay_innings(text_relays):
             stuff = opt.get('stuff', '')
 
             if t == 8:
+                last_was_result = False
                 for side_key in ['home', 'away']:
                     gps = ((opt.get('currentPlayersInfo') or {}).get(side_key) or {}).get('currentGamePlayerStats') or {}
                     if gps.get('batResult'):
@@ -586,6 +588,7 @@ def parse_relay_innings(text_relays):
 
             elif t == 1:
                 if speed or opt.get('pitchResult'):
+                    last_was_result = False
                     pitch_count += 1
                     pitch_entry = {
                         'num': pitch_count,
@@ -622,17 +625,20 @@ def parse_relay_innings(text_relays):
 
             elif t == 13 or t == 23:
                 result_text = text
+                last_was_result = True
                 if pitches and pitches[-1]['result'] == 'H':
                     pitches[-1]['hit_result'] = text
 
             elif t == 14 or t == 24:
                 if pitches and pitches[-1]['result'] == 'H':
+                    # 타격 직후 진루
                     prev = pitches[-1].get('hit_result', '')
                     pitches[-1]['hit_result'] = (prev + (' / ' if prev else '') + text).strip()
+                elif last_was_result:
+                    # 볼넷/사구 등 결과 직후 진루
+                    result_text = result_text + ' / ' + text if result_text else text
                 else:
                     inline_events_pending.append({'text': f"── {text} ──", 'type': 'advance'})
-                if not result_text:
-                    result_text = text
 
         play = {
             'title': title,
@@ -643,9 +649,9 @@ def parse_relay_innings(text_relays):
         }
         innings_data[inning_key]['plays'].append(play)
 
-    # 이닝 정렬: 번호 오름차순, 같은 이닝은 초→말
+    # 이닝 정렬: 번호 오름차순, 같은 이닝은 말→초 (말이 위, 초가 아래)
     sorted_keys = sorted(innings_data.keys(),
-        key=lambda k: innings_data[k]['inn'] * 2 + (0 if innings_data[k]['half'] == '0' else 1))
+        key=lambda k: innings_data[k]['inn'] * 2 + (0 if innings_data[k]['half'] == '1' else 1))
     return [{'key': k, **innings_data[k]} for k in sorted_keys]
 KBO_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
