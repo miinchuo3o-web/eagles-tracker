@@ -250,6 +250,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .relay-pitch-stuff{font-size:10px;color:var(--text-hint);}
 .relay-pitch-speed{font-size:10px;color:var(--text-hint);margin-left:auto;}
 .relay-result-text{font-size:13px;font-weight:600;color:var(--text);padding:6px 0;border-top:.5px solid var(--border);margin-top:4px;}
+.relay-hit-result{font-size:12px;color:var(--text);padding:2px 0 2px 24px;line-height:1.4;}
+.relay-event-line{font-size:12px;color:var(--text-sub);padding:4px 8px;margin:4px 0;background:var(--bg);border-radius:4px;text-align:center;border:.5px solid var(--border);}
 .stats-sub-btn{padding:7px 16px;font-size:13px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--text-sub);cursor:pointer;font-weight:500;}
 .stats-sub-btn.active{background:var(--primary);color:white;border-color:var(--primary);}
 .milestone-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle;}
@@ -634,7 +636,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -1166,32 +1168,51 @@ async function loadInningContent(innNum) {
 function renderInningPlays(inningsData) {
   const PITCH_MAP = {'T':'스트라이크','S':'헛스윙','F':'파울','B':'볼','H':'타격','O':'아웃'};
   if(!inningsData.length) return '<div class="empty">기록이 없어요</div>';
+
   return inningsData.map(inn => {
     const innLabel = `${inn.inn}회${inn.half==='1'?'말':'초'}`;
     const playsHtml = (inn.plays||[]).map(r => {
+      // pitches 없고 result_text 없으면 스킵 (빈 타석)
+      if(!r.pitches?.length && !r.result_text && !r.events?.length) return '';
+
       const prevResults = r.bat_result ? r.bat_result.split('|').filter(Boolean) : [];
       const prevHtml = prevResults.length ? `<div class="relay-item-prev">이전 타석: ${prevResults.join(' → ')}</div>` : '';
-      const pitchesHtml = r.pitches.map((p,i)=>{
-        const pr = PITCH_MAP[p.result]||p.text;
+
+      // 타석 전 이벤트 (교체 등 pitches 전)
+      const beforeEventsHtml = (r.events||[]).map(e =>
+        `<div class="relay-event-line">${e.text}</div>`
+      ).join('');
+
+      // 투구 목록 (after_events 포함)
+      const pitchesHtml = (r.pitches||[]).map((p,i) => {
+        const pr = PITCH_MAP[p.result] || p.text;
         const cls = ['T','S','F'].includes(p.result)?'strike':p.result==='B'?'ball':'';
-        const hitResult = p.hit_result ? `<span class="relay-pitch-stuff" style="color:var(--text)">${p.hit_result.replace(/^.*?: /,'')}</span>` : '';
+        const hitResultHtml = p.hit_result ?
+          `<div class="relay-hit-result">└ ${p.hit_result.replace(/^.*?: /, '')}</div>` : '';
+
+        const afterEventsHtml = (p.after_events||[]).map(e =>
+          `<div class="relay-event-line">${e.text}</div>`
+        ).join('');
+
         return `<div class="relay-pitch-row">
-          <span class="relay-pitch-num">${i+1}구</span>
+          <span class="relay-pitch-num">${p.num||i+1}구</span>
           <span class="relay-pitch-result ${cls}">${pr}</span>
           ${p.stuff?`<span class="relay-pitch-stuff">${p.stuff}</span>`:''}
           ${p.speed?`<span class="relay-pitch-speed">${p.speed}km/h</span>`:''}
-          ${hitResult}
-        </div>`;
+        </div>${hitResultHtml}${afterEventsHtml}`;
       }).join('');
-      const lastPitch = r.pitches[r.pitches.length-1];
-      const finalResult = r.result_text || (lastPitch?.hit_result) || '';
-      const resultHtml = finalResult ? `<div class="relay-result-text">→ ${finalResult}</div>` : '';
-      if(!prevHtml && !pitchesHtml && !resultHtml) return '';
+
+      // 최종 결과 (볼넷 등 타격 없는 결과)
+      const lastPitch = r.pitches?.[r.pitches.length-1];
+      const showResult = r.result_text && !(lastPitch?.hit_result);
+      const resultHtml = showResult ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
+
       return `<div class="relay-item">
         <div class="relay-item-header">${r.title}</div>
-        <div class="relay-item-body">${prevHtml}${pitchesHtml}${resultHtml}</div>
+        <div class="relay-item-body">${beforeEventsHtml}${prevHtml}${pitchesHtml}${resultHtml}</div>
       </div>`;
     }).join('');
+
     return `<div class="relay-item"><div class="relay-item-header inning">⚾ ${innLabel}</div></div>${playsHtml}`;
   }).join('');
 }

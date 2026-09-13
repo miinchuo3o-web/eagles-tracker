@@ -543,6 +543,121 @@ def get_teams():
 
 # ── 선수 검색 & 스탯 ────────────────────────────────
 KBO_BASE = 'https://www.koreabaseball.com'
+
+def parse_relay_innings(text_relays):
+    """textRelays 배열을 이닝별 plays로 파싱 (역순 유지)"""
+    innings_data = {}
+
+    # 역순 정렬 (최신이 먼저, no 내림차순)
+    sorted_relays = sorted(text_relays, key=lambda r: r.get('no', 0), reverse=True)
+
+    for relay in sorted_relays:
+        title = relay.get('title', '')
+        title_style = relay.get('titleStyle')
+        inn = int(relay.get('inn', 0) or 0)
+        home_or_away = str(relay.get('homeOrAway', '0'))
+        options = relay.get('textOptions') or []
+        inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
+
+        if inning_key not in innings_data:
+            innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
+
+        if str(title_style) == '0' or not title or title.startswith('===') or str(title_style) == '99':
+            continue
+
+        pitches = []
+        events = []
+        result_text = ''
+        bat_result = ''
+        pitch_count = 0
+
+        for opt in options:
+            t = opt.get('type')
+            text = opt.get('text', '')
+            speed = opt.get('speed', '')
+            stuff = opt.get('stuff', '')
+
+            if t == 8:
+                for side_key in ['home', 'away']:
+                    gps = ((opt.get('currentPlayersInfo') or {}).get(side_key) or {}).get('currentGamePlayerStats') or {}
+                    if gps.get('batResult'):
+                        bat_result = gps['batResult']
+
+            elif t == 1 and speed:
+                pitch_count += 1
+                pitches.append({
+                    'num': pitch_count,
+                    'text': text,
+                    'speed': speed,
+                    'stuff': stuff,
+                    'result': opt.get('pitchResult', ''),
+                    'hit_result': '',
+                    'after_events': []
+                })
+
+            elif t == 2:
+                pc = opt.get('playerChange') or {}
+                in_player = pc.get('inPlayer') or {}
+                out_player = pc.get('outPlayer') or {}
+                in_name = in_player.get('playerName', '')
+                in_pos = in_player.get('playerPos', '')
+                out_name = out_player.get('playerName', '')
+                if in_pos == '투수':
+                    event_text = f"⚾ 투수 교체: {out_name} → {in_name}"
+                elif in_pos == '대주자':
+                    event_text = f"🔄 대주자 {in_name} IN / {out_name} OUT"
+                elif in_pos == '대타':
+                    event_text = f"🔄 대타 {in_name} IN / {out_name} OUT"
+                else:
+                    event_text = text or f"🔄 {in_name} IN / {out_name} OUT"
+
+                if pitches:
+                    pitches[-1]['after_events'].append({'text': event_text, 'type': 'change'})
+                else:
+                    events.append({'text': event_text, 'type': 'change'})
+
+            elif t == 7:
+                if text and text not in ['투수 투수판 이탈']:
+                    if pitches:
+                        pitches[-1]['after_events'].append({'text': f"── {text} ──", 'type': 'wild'})
+
+            elif t == 13:
+                result_text = text
+                if pitches and pitches[-1]['result'] == 'H':
+                    pitches[-1]['hit_result'] = text
+
+            elif t == 14:
+                if pitches and pitches[-1]['result'] == 'H':
+                    prev = pitches[-1].get('hit_result', '')
+                    pitches[-1]['hit_result'] = (prev + (' / ' if prev else '') + text).strip()
+                elif pitches:
+                    pitches[-1]['after_events'].append({'text': f"── {text} ──", 'type': 'advance'})
+                if not result_text and not (pitches and pitches[-1]['result'] == 'H'):
+                    result_text = text
+
+        play = {
+            'title': title,
+            'bat_result': bat_result,
+            'pitches': pitches,
+            'result_text': result_text,
+            'events': events,
+        }
+        innings_data[inning_key]['plays'].append(play)
+
+    # carry-over: H pitch 결과 없는 타석 → 다음(과거) 타석 result_text로 채우기
+    for ik, idata in innings_data.items():
+        plays = idata['plays']
+        for i in range(len(plays) - 1):
+            curr = plays[i]
+            nxt = plays[i + 1]
+            curr_last = curr['pitches'][-1] if curr['pitches'] else None
+            if curr_last and curr_last['result'] == 'H' and not curr_last['hit_result']:
+                if nxt.get('result_text'):
+                    curr_last['hit_result'] = nxt['result_text']
+                    curr['result_text'] = nxt['result_text']
+
+    sorted_keys = sorted(innings_data.keys(), key=lambda k: innings_data[k]['inn'] * 2 + (1 if innings_data[k]['half'] == '1' else 0))
+    return [{'key': k, **innings_data[k]} for k in sorted_keys]
 KBO_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
     'Referer': KBO_BASE,
@@ -836,62 +951,11 @@ def get_relay(team_code):
             except:
                 pass
 
-        # no 기준으로 정렬 (오름차순 = 1회부터)
-        all_text_relays.sort(key=lambda r: r.get('no', 0))
+        # 역순 유지 (API 원본 = 최신이 앞, 과거가 뒤)
+        # no 내림차순 정렬 (최신이 먼저)
+        all_text_relays.sort(key=lambda r: r.get('no', 0), reverse=True)
 
-        # 이닝별 그룹핑
-        innings_data = {}
-        for relay in all_text_relays:
-            title = relay.get('title', '')
-            title_style = relay.get('titleStyle')
-            inn = int(relay.get('inn', 0) or 0)
-            home_or_away = str(relay.get('homeOrAway', '0'))
-            options = relay.get('textOptions') or []
-
-            inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
-
-            if str(title_style) == '0' or not title or title.startswith('===') or str(title_style) == '99':
-                if inning_key not in innings_data:
-                    innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
-                continue
-
-            pitches = []
-            result_text = ''
-            bat_result = ''
-
-            for opt in options:
-                t = opt.get('type')
-                text = opt.get('text', '')
-                speed = opt.get('speed', '')
-                stuff = opt.get('stuff', '')
-                if t == 8:
-                    for side_key in ['home', 'away']:
-                        gps = ((opt.get('currentPlayersInfo') or {}).get(side_key) or {}).get('currentGamePlayerStats') or {}
-                        if gps.get('batResult'):
-                            bat_result = gps['batResult']
-                elif t == 1 and speed:
-                    pitches.append({'text': text, 'speed': speed, 'stuff': stuff, 'result': opt.get('pitchResult', ''), 'hit_result': ''})
-                elif t == 13:
-                    result_text = text
-                    if pitches and pitches[-1]['result'] == 'H':
-                        pitches[-1]['hit_result'] = text
-                elif t == 14:
-                    # 주자 진루/득점 이벤트
-                    if pitches and pitches[-1]['result'] == 'H':
-                        prev = pitches[-1].get('hit_result', '')
-                        pitches[-1]['hit_result'] = (prev + (' / ' if prev else '') + text).strip()
-                    if not result_text:
-                        result_text = text
-
-            if inning_key not in innings_data:
-                innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
-            innings_data[inning_key]['plays'].append({
-                'title': title, 'bat_result': bat_result,
-                'pitches': pitches, 'result_text': result_text,
-            })
-
-        sorted_innings = sorted(innings_data.keys(), key=lambda k: innings_data[k]['inn'] * 2 + (1 if innings_data[k]['half'] == '1' else 0))
-        innings_list = [{'key': k, **innings_data[k]} for k in sorted_innings]
+        innings_list = parse_relay_innings(all_text_relays)
 
         return jsonify({
             'game_id': game_id, 'date': date,
@@ -982,89 +1046,8 @@ def get_relay(team_code):
             'NC':'NC','KT':'KT','HT':'KIA','WO':'키움','LT':'롯데'
         }
 
-        # 중계 텍스트 파싱 - 이닝별로 그룹핑 (데이터는 역순으로 옴)
-        innings_data = {}
-
-        for relay in text_relays:
-            title = relay.get('title', '')
-            title_style = relay.get('titleStyle')  # 정수로 올 수 있음
-            inn = int(relay.get('inn', 0) or 0)
-            home_or_away = str(relay.get('homeOrAway', '0'))  # '0'=초, '1'=말
-            options = relay.get('textOptions') or []
-
-            inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
-
-            # 이닝 헤더 (titleStyle == 0) - 스킵
-            if str(title_style) == '0':
-                if inning_key not in innings_data:
-                    innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
-                continue
-
-            # === 구분선 스킵
-            if not title or title.startswith('===') or str(title_style) == '99':
-                continue
-
-            pitches = []
-            result_text = ''
-            bat_result = ''
-
-            for opt in options:
-                t = opt.get('type')
-                text = opt.get('text', '')
-                speed = opt.get('speed', '')
-                stuff = opt.get('stuff', '')
-
-                if t == 8:
-                    players_info = opt.get('currentPlayersInfo') or {}
-                    for side_key in ['home', 'away']:
-                        side_info = players_info.get(side_key) or {}
-                        gps = side_info.get('currentGamePlayerStats') or {}
-                        if gps.get('batResult'):
-                            bat_result = gps['batResult']
-                elif t == 1 and speed:
-                    pitches.append({
-                        'text': text, 'speed': speed, 'stuff': stuff,
-                        'result': opt.get('pitchResult', ''), 'hit_result': ''
-                    })
-                elif t == 13:
-                    result_text = text
-                    if pitches and pitches[-1]['result'] == 'H':
-                        pitches[-1]['hit_result'] = text
-                elif t == 14:
-                    if pitches and pitches[-1]['result'] == 'H':
-                        prev = pitches[-1].get('hit_result', '')
-                        pitches[-1]['hit_result'] = (prev + (' / ' if prev else '') + text).strip()
-                    if not result_text:
-                        result_text = text
-
-            if inning_key not in innings_data:
-                innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
-
-            innings_data[inning_key]['plays'].append({
-                'title': title,
-                'bat_result': bat_result,
-                'pitches': pitches,
-                'result_text': result_text,
-            })
-
-        # 이닝 순서 정렬 (역순 데이터이므로 plays도 뒤집기)
-        def inning_sort_key(k):
-            d = innings_data[k]
-            return d['inn'] * 2 + (1 if d['half'] == '1' else 0)
-
-        sorted_innings = sorted(innings_data.keys(), key=inning_sort_key)
-        innings_list = []
-        for k in sorted_innings:
-            d = innings_data[k]
-            inn = d['inn']
-            half = d['half']
-            plays = list(reversed(d['plays']))  # 역순 → 정순으로
-            innings_list.append({
-                'key': k,
-                'inn': inn,
-                'half': half,
-                'plays': plays,
-            })
+        # 중계 텍스트 파싱 (공통 함수 사용)
+        innings_list = parse_relay_innings(text_relays)
 
         return jsonify({
             'game_id': game_id,
