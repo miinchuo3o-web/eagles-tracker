@@ -724,14 +724,20 @@ def get_schedule(team_code):
         res = requests.get(url, headers=headers, timeout=10)
         data = res.json()
         games = data.get('result', {}).get('games', [])
-        # 해당 팀 경기만 필터, 날짜만 추출 (정렬)
-        dates = sorted(set(
-            g.get('gameDate', g.get('gameId','')[:8])[:8]  # YYYYMMDD
-            for g in games
-            if g.get('homeTeamCode') == team_code or g.get('awayTeamCode') == team_code
-        ))
-        # YYYY-MM-DD 형식으로 변환
-        formatted = [f"{d[:4]}-{d[4:6]}-{d[6:8]}" for d in dates if len(d) >= 8]
+
+        date_set = set()
+        for g in games:
+            home = g.get('homeTeamCode', '')
+            away = g.get('awayTeamCode', '')
+            if home != team_code and away != team_code:
+                continue
+            # gameId 앞 8자리가 날짜 (예: 20260911NCHH02026)
+            game_id = g.get('gameId', '')
+            if len(game_id) >= 8:
+                raw = game_id[:8]  # YYYYMMDD
+                date_set.add(f"{raw[:4]}-{raw[4:6]}-{raw[6:8]}")
+
+        formatted = sorted(date_set)
         return jsonify({'dates': formatted, 'team': team_code})
     except Exception as e:
         return jsonify({'dates': [], 'error': str(e)}), 200
