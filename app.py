@@ -713,6 +713,166 @@ def remove_favorite_player(player_id):
 
 @app.route('/relay/<team_code>')
 def get_relay(team_code):
+    """팀 경기 문자중계 (전체 이닝)"""
+    try:
+        from datetime import timezone, timedelta
+        KST = timezone(timedelta(hours=9))
+        date = request.args.get('date', datetime.now(KST).strftime('%Y-%m-%d'))
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://m.sports.naver.com'}
+
+        # 경기 일정 가져오기
+        schedule_url = f'https://api-gw.sports.naver.com/schedule/games?upperCategoryId=kbaseball&categoryId=kbo&fromDate={date}&toDate={date}&fields=basic,schedule,baseball&size=50'
+        res = requests.get(schedule_url, headers=headers, timeout=10)
+        schedule_data = res.json()
+        games = schedule_data.get('result', {}).get('games', [])
+
+        game_id = None
+        game_info = {}
+        for game in games:
+            home = game.get('homeTeamCode', '')
+            away = game.get('awayTeamCode', '')
+            if home == team_code or away == team_code:
+                game_id = game.get('gameId', '')
+                game_info = game
+                break
+
+        if not game_id:
+            return jsonify({'no_game': True, 'date': date}), 200
+
+        # 전체 중계 데이터 수집 - no=1부터 시작해서 전체 합치기
+        all_relays = []
+        relay_meta = {}
+        
+        # 첫 번째 호출로 메타데이터 및 마지막 no 파악
+        relay_url = f'https://api-gw.sports.naver.com/schedule/games/{game_id}/relay'
+        relay_res = requests.get(relay_url, headers=headers, timeout=15)
+        relay_json = relay_res.json()
+        relay_result = relay_json.get('result', {})
+        if not relay_result:
+            return jsonify({'no_game': True, 'date': date}), 200
+
+        relay_data = relay_result.get('textRelayData', {})
+        if not relay_data:
+            return jsonify({'no_game': True, 'date': date}), 200
+
+        # 메타데이터
+        state = relay_data.get('currentGameState') or {}
+        inning_score = relay_data.get('inningScore') or {}
+        home_lineup = relay_data.get('homeLineup') or {}
+        away_lineup = relay_data.get('awayLineup') or {}
+
+        def find_player_name(pcode):
+            for lineup in [home_lineup, away_lineup]:
+                for group in ['batter', 'pitcher']:
+                    for p in lineup.get(group, []):
+                        if str(p.get('pcode', '')) == str(pcode):
+                            return p.get('name', '')
+            return ''
+
+        pitcher_name = find_player_name(state.get('pitcher', ''))
+        batter_name = find_player_name(state.get('batter', ''))
+
+        home_code = game_info.get('homeTeamCode', '')
+        away_code = game_info.get('awayTeamCode', '')
+        TEAM_NAMES = {
+            'HH':'한화','LG':'LG','OB':'두산','SS':'삼성','SK':'SSG',
+            'NC':'NC','KT':'KT','HT':'KIA','WO':'키움','LT':'롯데'
+        }
+
+        # inning 파라미터로 특정 이닝만 가져오기
+        req_inning = request.args.get('inning')
+
+        # 최신 이닝 파악 (inning_score 기반)
+        home_innings = [int(k) for k in inning_score.get('home', {}).keys()]
+        away_innings = [int(k) for k in inning_score.get('away', {}).keys()]
+        max_inning = max(home_innings + away_innings + [1])
+        last_inning = max_inning
+
+        # 요청 이닝 없으면 최신 이닝
+        target_inning = int(req_inning) if req_inning else last_inning
+
+        # 해당 이닝 데이터 가져오기
+        all_text_relays = []
+        for half in [0, 1]:  # 초, 말 둘 다
+            try:
+                inn_url = f'https://api-gw.sports.naver.com/schedule/games/{game_id}/relay?inning={target_inning}'
+                if half == 0:
+                    inn_res = requests.get(inn_url, headers=headers, timeout=10)
+                    inn_data = inn_res.json()
+                    inn_relays = inn_data.get('result', {}).get('textRelayData', {}).get('textRelays') or []
+                    all_text_relays.extend(inn_relays)
+                    break  # 한 번만 호출하면 초+말 다 옴
+            except:
+                pass
+
+        # no 기준으로 정렬 (오름차순 = 1회부터)
+        all_text_relays.sort(key=lambda r: r.get('no', 0))
+
+        # 이닝별 그룹핑
+        innings_data = {}
+        for relay in all_text_relays:
+            title = relay.get('title', '')
+            title_style = relay.get('titleStyle')
+            inn = int(relay.get('inn', 0) or 0)
+            home_or_away = str(relay.get('homeOrAway', '0'))
+            options = relay.get('textOptions') or []
+
+            inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
+
+            if str(title_style) == '0' or not title or title.startswith('===') or str(title_style) == '99':
+                if inning_key not in innings_data:
+                    innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
+                continue
+
+            pitches = []
+            result_text = ''
+            bat_result = ''
+
+            for opt in options:
+                t = opt.get('type')
+                text = opt.get('text', '')
+                speed = opt.get('speed', '')
+                stuff = opt.get('stuff', '')
+                if t == 8:
+                    for side_key in ['home', 'away']:
+                        gps = ((opt.get('currentPlayersInfo') or {}).get(side_key) or {}).get('currentGamePlayerStats') or {}
+                        if gps.get('batResult'):
+                            bat_result = gps['batResult']
+                elif t == 1 and speed:
+                    pitches.append({'text': text, 'speed': speed, 'stuff': stuff, 'result': opt.get('pitchResult', '')})
+                elif t == 13:
+                    result_text = text
+
+            if inning_key not in innings_data:
+                innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
+            innings_data[inning_key]['plays'].append({
+                'title': title, 'bat_result': bat_result,
+                'pitches': pitches, 'result_text': result_text,
+            })
+
+        sorted_innings = sorted(innings_data.keys(), key=lambda k: innings_data[k]['inn'] * 2 + (1 if innings_data[k]['half'] == '1' else 0))
+        innings_list = [{'key': k, **innings_data[k]} for k in sorted_innings]
+
+        return jsonify({
+            'game_id': game_id, 'date': date,
+            'target_inning': target_inning,
+            'max_inning': last_inning,
+            'state': {
+                'home_score': state.get('homeScore', '0'), 'away_score': state.get('awayScore', '0'),
+                'home_hit': state.get('homeHit', '0'), 'away_hit': state.get('awayHit', '0'),
+                'strike': state.get('strike', '0'), 'ball': state.get('ball', '0'), 'out': state.get('out', '0'),
+                'base1': state.get('base1', '0'), 'base2': state.get('base2', '0'), 'base3': state.get('base3', '0'),
+                'pitcher': pitcher_name, 'batter': batter_name,
+            },
+            'inning_score': inning_score,
+            'innings': innings_list,
+            'home_team': home_code, 'away_team': away_code,
+            'home_team_name': TEAM_NAMES.get(home_code, home_code),
+            'away_team_name': TEAM_NAMES.get(away_code, away_code),
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
     """팀 경기 문자중계 (날짜 선택 가능)"""
     try:
         from datetime import timezone, timedelta
