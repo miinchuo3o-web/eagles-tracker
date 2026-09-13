@@ -209,6 +209,51 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .news-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;line-height:1.4;cursor:pointer;}
 .news-title:hover{color:var(--primary);}
 .news-meta{font-size:11px;color:var(--text-hint);display:flex;gap:8px;}
+
+/* 중계 */
+.relay-scoreboard{background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:10px;border:.5px solid var(--border);}
+.relay-teams{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.relay-team{text-align:center;flex:1;}
+.relay-team-name{font-size:12px;color:var(--text-sub);margin-bottom:4px;}
+.relay-team-score{font-size:32px;font-weight:700;color:var(--text);}
+.relay-vs{font-size:14px;color:var(--text-hint);padding:0 10px;}
+.relay-inning-grid{display:grid;gap:1px;margin-bottom:10px;}
+.relay-inning-row{display:flex;font-size:10px;}
+.relay-inning-cell{flex:1;text-align:center;padding:3px 2px;min-width:20px;}
+.relay-inning-cell.header{color:var(--text-hint);font-weight:600;}
+.relay-inning-cell.team{font-weight:600;color:var(--text-sub);text-align:left;padding-left:6px;min-width:36px;flex:none;}
+.relay-inning-cell.total{font-weight:700;color:var(--text);min-width:28px;flex:none;}
+.relay-count{display:flex;align-items:center;justify-content:center;gap:16px;padding:8px 0;border-top:.5px solid var(--border);}
+.relay-count-item{text-align:center;}
+.relay-count-label{font-size:9px;color:var(--text-hint);}
+.relay-count-val{font-size:16px;font-weight:700;color:var(--text);}
+.relay-bases{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:3px;width:54px;height:38px;transform:rotate(45deg);}
+.relay-base{width:14px;height:14px;border:2px solid var(--border);border-radius:2px;}
+.relay-base.on{background:var(--primary);border-color:var(--primary);}
+.relay-now{background:var(--bg);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--text-sub);}
+.relay-now strong{color:var(--text);font-size:13px;}
+.relay-at-bat-result{font-size:10px;color:var(--text-hint);margin-top:2px;}
+
+.relay-list{display:flex;flex-direction:column;gap:8px;}
+.relay-item{background:var(--card);border-radius:var(--radius-sm);overflow:hidden;border:.5px solid var(--border);}
+.relay-item-header{padding:8px 12px;font-size:13px;font-weight:600;color:var(--text);background:var(--bg);}
+.relay-item-header.inning{color:var(--primary);background:var(--primary-light);}
+.relay-item-body{padding:8px 12px;display:flex;flex-direction:column;gap:4px;}
+.relay-item-batter{font-size:12px;color:var(--text-sub);margin-bottom:4px;}
+.relay-item-prev{font-size:10px;color:var(--text-hint);margin-bottom:6px;}
+.relay-pitch-row{display:flex;align-items:center;gap:8px;font-size:12px;}
+.relay-pitch-num{color:var(--text-hint);min-width:20px;}
+.relay-pitch-result{font-weight:500;}
+.relay-pitch-result.strike{color:var(--primary);}
+.relay-pitch-result.ball{color:var(--green);}
+.relay-pitch-result.out{color:var(--red);}
+.relay-pitch-stuff{font-size:10px;color:var(--text-hint);}
+.relay-pitch-speed{font-size:10px;color:var(--text-hint);margin-left:auto;}
+.relay-result-text{font-size:13px;font-weight:600;color:var(--text);padding:6px 0;border-top:.5px solid var(--border);margin-top:4px;}
+.relay-refresh-btn{width:100%;padding:10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text-sub);cursor:pointer;margin-bottom:10px;}
+.relay-refresh-btn:active{background:var(--card);}
+.relay-no-game{text-align:center;padding:32px;color:var(--text-hint);}
+.relay-loading{text-align:center;color:var(--text-hint);font-size:13px;padding:24px;}
 .news-loading{text-align:center;color:var(--text-sub);font-size:13px;padding:24px;}
 .player-search-box{background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;}
 .player-search-result-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:white;border-radius:var(--radius-sm);border:1px solid var(--border);margin-top:6px;}
@@ -503,6 +548,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
         <button class="stat-nav-btn" onclick="switchStatNav('money')">지출</button>
         <button class="stat-nav-btn" onclick="switchStatNav('milestone')">마일스톤</button>
         <button class="stat-nav-btn" onclick="switchStatNav('news')">📰 뉴스</button>
+        <button class="stat-nav-btn" onclick="switchStatNav('relay')">⚾ 중계</button>
       </div>
 
       <!-- 📅 달력 -->
@@ -572,6 +618,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
       <div class="stat-section" id="stat-news">
         <div id="newsList"><div class="empty">뉴스 탭을 클릭하면 최신 기사를 불러와요 📰</div></div>
       </div>
+
+      <!-- ⚾ 중계 -->
+      <div class="stat-section" id="stat-relay">
+        <div id="relayContent"><div class="empty">⚾ 중계 탭을 누르면 오늘 경기를 불러와요!</div></div>
+      </div>
     
     <div class="card">
       <div class="section-title">기록 목록</div>
@@ -609,7 +660,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -780,7 +831,7 @@ function switchTab(t){
 }
 function switchStatNav(t){
   currentStatNav=t;
-  const tabs=['calendar','overview','player','vs','day','gallery','money','milestone','news'];
+  const tabs=['calendar','overview','player','vs','day','gallery','money','milestone','news','relay'];
   document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));
   document.querySelectorAll('.stat-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('stat-'+t).classList.add('active');
@@ -788,6 +839,7 @@ function switchStatNav(t){
   if(t==='player') loadFavPlayers();
   if(t==='calendar') renderCalendar();
   if(t==='news') loadNews();
+  if(t==='relay') loadRelay();
 }
 function setEditResult(v){editResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('et-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
 function setManResult(v){manResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('mt-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
@@ -1017,7 +1069,134 @@ function openPhotoModal(url, info) {
 }
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
 
-// ── 뉴스 ──────────────────────────────────────────────
+// ── 문자중계 ──────────────────────────────────────────
+async function loadRelay(refresh=false) {
+  const el = document.getElementById('relayContent');
+  el.innerHTML = '<div class="relay-loading">⚾ 오늘 경기 불러오는 중...</div>';
+  try {
+    const res = await fetch(`${SERVER_URL}/relay/${favoriteTeam}`, {
+      headers: {'Authorization': `Bearer ${token}`}
+    });
+    const data = await res.json();
+
+    if(data.no_game || data.error === '오늘 경기가 없어요') {
+      el.innerHTML = `<div class="relay-no-game">⚾<br><br>오늘 경기가 없어요<br><span style="font-size:12px;color:var(--text-hint)">경기 있는 날 다시 확인해봐요!</span></div>`;
+      return;
+    }
+    if(data.error) { el.innerHTML = `<div class="relay-no-game">불러오기 실패: ${data.error}</div>`; return; }
+
+    const TEAMS = window.TEAMS_DATA || {};
+    const t = TEAMS[favoriteTeam] || {};
+    const homeName = data.home_team || '';
+    const awayName = data.away_team || '';
+
+    // 이닝 스코어 테이블
+    const innings = Object.keys(data.inning_score?.home || {}).sort((a,b)=>parseInt(a)-parseInt(b));
+    let inningHtml = '';
+    if(innings.length) {
+      const headerCells = ['', ...innings, 'R', 'H'].map((i,idx)=>
+        idx===0 ? `<div class="relay-inning-cell team">팀</div>` :
+        idx>innings.length ? `<div class="relay-inning-cell total">${i}</div>` :
+        `<div class="relay-inning-cell header">${i}</div>`
+      ).join('');
+      const homeScore = data.state.home_score;
+      const awayScore = data.state.away_score;
+      const makeCells = (side) => {
+        const scores = data.inning_score[side] || {};
+        const cells = innings.map(i => `<div class="relay-inning-cell">${scores[i]??''}</div>`).join('');
+        const totalScore = side==='home' ? homeScore : awayScore;
+        const totalHit = side==='home' ? data.state.home_hit : data.state.away_hit;
+        return `<div class="relay-inning-cell team">${side==='home'?homeName:awayName}</div>${cells}<div class="relay-inning-cell total">${totalScore}</div><div class="relay-inning-cell total">${totalHit}</div>`;
+      };
+      inningHtml = `
+        <div class="relay-inning-grid">
+          <div class="relay-inning-row">${headerCells}<div class="relay-inning-cell total">H</div></div>
+          <div class="relay-inning-row">${makeCells('away')}</div>
+          <div class="relay-inning-row">${makeCells('home')}</div>
+        </div>`;
+    }
+
+    // 볼카운트 & 주루
+    const s = data.state;
+    const baseHtml = `
+      <div style="display:flex;align-items:center;gap:12px;justify-content:center;">
+        <div style="position:relative;width:46px;height:46px;">
+          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%) rotate(45deg);width:13px;height:13px;border:2px solid var(--border);border-radius:2px;${s.base2!=='0'&&s.base2?'background:var(--primary);border-color:var(--primary);':''}"></div>
+          <div style="position:absolute;bottom:0;left:4px;transform:rotate(45deg);width:13px;height:13px;border:2px solid var(--border);border-radius:2px;${s.base1!=='0'&&s.base1?'background:var(--primary);border-color:var(--primary);':''}"></div>
+          <div style="position:absolute;bottom:0;right:4px;transform:rotate(45deg);width:13px;height:13px;border:2px solid var(--border);border-radius:2px;${s.base3!=='0'&&s.base3?'background:var(--primary);border-color:var(--primary);':''}"></div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div class="relay-count-item"><div class="relay-count-label">볼</div><div class="relay-count-val" style="color:var(--green)">${s.ball}</div></div>
+          <div class="relay-count-item"><div class="relay-count-label">스트</div><div class="relay-count-val" style="color:var(--primary)">${s.strike}</div></div>
+          <div class="relay-count-item"><div class="relay-count-label">아웃</div><div class="relay-count-val" style="color:var(--red)">${s.out}</div></div>
+        </div>
+      </div>`;
+
+    // 현재 투수/타자
+    const nowHtml = s.pitcher || s.batter ? `
+      <div class="relay-now">
+        ${s.pitcher ? `⚾ 투수 <strong>${s.pitcher}</strong>` : ''}
+        ${s.pitcher && s.batter ? '&nbsp;→&nbsp;' : ''}
+        ${s.batter ? `🏏 타자 <strong>${s.batter}</strong>` : ''}
+      </div>` : '';
+
+    // 중계 텍스트
+    const PITCH_RESULT_MAP = {'T':'스트라이크','S':'헛스윙','F':'파울','B':'볼','H':'타격','O':'아웃'};
+    const relayHtml = data.relays.map(r => {
+      if(!r.title) return '';
+      const isInning = r.title_style === '0';
+      const headerClass = isInning ? 'relay-item-header inning' : 'relay-item-header';
+      if(isInning) return `<div class="relay-item"><div class="${headerClass}">${r.title}</div></div>`;
+
+      const prevResults = r.bat_result ? r.bat_result.split('|').filter(Boolean) : [];
+      const prevHtml = prevResults.length ? `<div class="relay-item-prev">이전 타석: ${prevResults.join(' → ')}</div>` : '';
+
+      const pitchesHtml = r.pitches.map((p,i) => {
+        const pr = PITCH_RESULT_MAP[p.result] || p.text;
+        const cls = ['T','S','F'].includes(p.result)?'strike':p.result==='B'?'ball':p.result==='O'?'out':'';
+        return `<div class="relay-pitch-row">
+          <span class="relay-pitch-num">${i+1}구</span>
+          <span class="relay-pitch-result ${cls}">${pr}</span>
+          ${p.stuff?`<span class="relay-pitch-stuff">${p.stuff}</span>`:''}
+          ${p.speed?`<span class="relay-pitch-speed">${p.speed}km/h</span>`:''}
+        </div>`;
+      }).join('');
+
+      const resultHtml = r.result_text ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
+
+      return `<div class="relay-item">
+        <div class="${headerClass}">${r.title}</div>
+        <div class="relay-item-body">
+          ${prevHtml}
+          ${pitchesHtml}
+          ${resultHtml}
+        </div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <button class="relay-refresh-btn" onclick="loadRelay(true)">🔄 새로고침</button>
+      <div class="relay-scoreboard">
+        <div class="relay-teams">
+          <div class="relay-team">
+            <div class="relay-team-name">${awayName}</div>
+            <div class="relay-team-score">${s.away_score}</div>
+          </div>
+          <div class="relay-vs">vs</div>
+          <div class="relay-team">
+            <div class="relay-team-name">${homeName}</div>
+            <div class="relay-team-score">${s.home_score}</div>
+          </div>
+        </div>
+        ${inningHtml}
+        <div class="relay-count">${baseHtml}</div>
+      </div>
+      ${nowHtml}
+      <div class="relay-list">${relayHtml}</div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="relay-no-game">불러오기 실패 😢<br><span style="font-size:12px">${e.message}</span></div>`;
+  }
+}
 let newsLoaded = false;
 async function loadNews() {
   if(newsLoaded) return;

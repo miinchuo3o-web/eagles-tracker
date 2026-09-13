@@ -711,6 +711,133 @@ def remove_favorite_player(player_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/relay/<team_code>')
+def get_relay(team_code):
+    """오늘 팀 경기 문자중계"""
+    try:
+        today = datetime.now().strftime('%Y-%m-%d')
+        # 오늘 경기 일정 가져오기
+        schedule_url = f'https://api-gw.sports.naver.com/schedule/games?upperCategoryId=kbaseball&categoryId=kbo&fromDate={today}&toDate={today}&fields=basic,schedule,baseball&size=50'
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://m.sports.naver.com'}
+        res = requests.get(schedule_url, headers=headers, timeout=10)
+        data = res.json()
+        games = data.get('result', {}).get('games', [])
+
+        # 팀 코드 매핑
+        TEAM_MAP = {
+            'HH': ['HH', 'LGHH', 'NCHH', 'SSHH', 'OBHH', 'WOHH', 'KTHH', 'HTHH', 'SKHH', 'LTHH'],
+            'LG': ['LG'],  'OB': ['OB'], 'SS': ['SS'], 'SK': ['SK'],
+            'NC': ['NC'], 'KT': ['KT'], 'HT': ['HT'], 'WO': ['WO'], 'LT': ['LT'],
+        }
+
+        game_id = None
+        for game in games:
+            gid = game.get('gameId', '')
+            home = game.get('homeTeamCode', '')
+            away = game.get('awayTeamCode', '')
+            if home == team_code or away == team_code:
+                game_id = gid
+                break
+
+        if not game_id:
+            return jsonify({'error': '오늘 경기가 없어요', 'no_game': True}), 200
+
+        # 문자중계 가져오기
+        relay_url = f'https://api-gw.sports.naver.com/schedule/games/{game_id}/relay'
+        relay_res = requests.get(relay_url, headers=headers, timeout=15)
+        relay_data = relay_res.json()
+        result = relay_data.get('result', {}).get('textRelayData', {})
+
+        # 필요한 데이터만 추출
+        state = result.get('currentGameState', {})
+        inning_score = result.get('inningScore', {})
+        text_relays = result.get('textRelays', [])
+
+        # 투수/타자 이름 찾기
+        def find_player_name(pcode, lineup_data):
+            for side in ['homeLineup', 'awayLineup']:
+                lineup = result.get(side, {})
+                for group in ['batter', 'pitcher']:
+                    for p in lineup.get(group, []):
+                        if str(p.get('pcode', '')) == str(pcode):
+                            return p.get('name', '')
+            return pcode
+
+        pitcher_name = find_player_name(state.get('pitcher', ''), result)
+        batter_name = find_player_name(state.get('batter', ''), result)
+
+        # 중계 텍스트 파싱 (최근 타석들만)
+        parsed_relays = []
+        for relay in text_relays[:20]:  # 최근 20개 타석
+            title = relay.get('title', '')
+            title_style = relay.get('titleStyle', '')
+            options = relay.get('textOptions', [])
+
+            pitches = []
+            result_text = ''
+            batter_record = None
+            bat_result = ''
+
+            for opt in options:
+                t = opt.get('type')
+                text = opt.get('text', '')
+                speed = opt.get('speed', '')
+                stuff = opt.get('stuff', '')
+
+                if t == 8:  # 타자 등장
+                    batter_record = opt.get('batterRecord', {})
+                    home_info = opt.get('currentPlayersInfo', {}).get('home', {})
+                    away_info = opt.get('currentPlayersInfo', {}).get('away', {})
+                    # batResult 찾기
+                    for side_info in [home_info, away_info]:
+                        gps = side_info.get('currentGamePlayerStats', {})
+                        if gps.get('batResult'):
+                            bat_result = gps['batResult']
+                elif t == 1 and speed:  # 투구
+                    pitches.append({
+                        'text': text,
+                        'speed': speed,
+                        'stuff': stuff,
+                        'result': opt.get('pitchResult', '')
+                    })
+                elif t == 13:  # 타격 결과
+                    result_text = text
+                elif t == 2:  # 선수 교체
+                    pass
+
+            parsed_relays.append({
+                'title': title,
+                'title_style': title_style,
+                'batter_record': batter_record,
+                'bat_result': bat_result,
+                'pitches': pitches,
+                'result_text': result_text,
+            })
+
+        return jsonify({
+            'game_id': game_id,
+            'state': {
+                'home_score': state.get('homeScore', '0'),
+                'away_score': state.get('awayScore', '0'),
+                'home_hit': state.get('homeHit', '0'),
+                'away_hit': state.get('awayHit', '0'),
+                'strike': state.get('strike', '0'),
+                'ball': state.get('ball', '0'),
+                'out': state.get('out', '0'),
+                'base1': state.get('base1', '0'),
+                'base2': state.get('base2', '0'),
+                'base3': state.get('base3', '0'),
+                'pitcher': pitcher_name,
+                'batter': batter_name,
+            },
+            'inning_score': inning_score,
+            'relays': parsed_relays,
+            'home_team': game_id[10:12] if len(game_id) >= 12 else '',
+            'away_team': game_id[8:10] if len(game_id) >= 10 else '',
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/news/<team_code>')
 def get_news(team_code):
     team_names = {
