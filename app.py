@@ -620,12 +620,12 @@ def parse_relay_innings(text_relays):
                 if text and '투수판 이탈' not in text:
                     inline_events_pending.append({'text': f"── {text} ──", 'type': 'misc'})
 
-            elif t == 13:
+            elif t == 13 or t == 23:
                 result_text = text
                 if pitches and pitches[-1]['result'] == 'H':
                     pitches[-1]['hit_result'] = text
 
-            elif t == 14:
+            elif t == 14 or t == 24:
                 if pitches and pitches[-1]['result'] == 'H':
                     prev = pitches[-1].get('hit_result', '')
                     pitches[-1]['hit_result'] = (prev + (' / ' if prev else '') + text).strip()
@@ -642,29 +642,6 @@ def parse_relay_innings(text_relays):
             'post_events': post_events,
         }
         innings_data[inning_key]['plays'].append(play)
-
-    # carry-over: H pitch 결과 없는 타석 → 바로 다음 타석 앞 type=14로 채우기
-    for ik, idata in innings_data.items():
-        plays = idata['plays']
-        for i in range(len(plays) - 1):
-            curr = plays[i]
-            nxt = plays[i + 1]
-            curr_last = curr['pitches'][-1] if curr['pitches'] else None
-            if curr_last and curr_last['result'] == 'H' and not curr_last['hit_result']:
-                # 다음 타석 inline_before 이벤트에서 가져오기
-                for nxt_p in nxt.get('pitches', []):
-                    for ev in nxt_p.get('inline_before', []):
-                        if ev.get('type') == 'advance':
-                            prev = curr_last.get('hit_result', '')
-                            curr_last['hit_result'] = (prev + (' / ' if prev else '') + ev['text'].replace('── ', '').replace(' ──', '')).strip()
-                # 그래도 없으면 nxt result_text 확인 (볼넷이 아닌 경우만)
-                if not curr_last['hit_result'] and nxt.get('result_text'):
-                    nxt_rt = nxt['result_text']
-                    # 볼넷/삼진/아웃 결과는 carry-over 안 함
-                    skip_keywords = ['볼넷', '삼진', '아웃', '홈런']
-                    if not any(kw in nxt_rt for kw in skip_keywords):
-                        curr_last['hit_result'] = nxt_rt
-                        curr['result_text'] = nxt_rt
 
     # 이닝 정렬: 번호 오름차순, 같은 이닝은 초→말
     sorted_keys = sorted(innings_data.keys(),
