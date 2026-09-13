@@ -711,6 +711,31 @@ def remove_favorite_player(player_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/schedule/<team_code>')
+def get_schedule(team_code):
+    """팀의 월별 경기 날짜 목록 반환"""
+    try:
+        from datetime import timezone, timedelta
+        KST = timezone(timedelta(hours=9))
+        from_date = request.args.get('from', datetime.now(KST).strftime('%Y-%m-01'))
+        to_date = request.args.get('to', datetime.now(KST).strftime('%Y-%m-31'))
+        headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://m.sports.naver.com'}
+        url = f'https://api-gw.sports.naver.com/schedule/games?upperCategoryId=kbaseball&categoryId=kbo&fromDate={from_date}&toDate={to_date}&fields=basic,schedule,baseball&size=100'
+        res = requests.get(url, headers=headers, timeout=10)
+        data = res.json()
+        games = data.get('result', {}).get('games', [])
+        # 해당 팀 경기만 필터, 날짜만 추출 (정렬)
+        dates = sorted(set(
+            g.get('gameDate', g.get('gameId','')[:8])[:8]  # YYYYMMDD
+            for g in games
+            if g.get('homeTeamCode') == team_code or g.get('awayTeamCode') == team_code
+        ))
+        # YYYY-MM-DD 형식으로 변환
+        formatted = [f"{d[:4]}-{d[4:6]}-{d[6:8]}" for d in dates if len(d) >= 8]
+        return jsonify({'dates': formatted, 'team': team_code})
+    except Exception as e:
+        return jsonify({'dates': [], 'error': str(e)}), 200
+
 @app.route('/relay/<team_code>')
 def get_relay(team_code):
     """팀 경기 문자중계 (전체 이닝)"""

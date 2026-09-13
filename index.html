@@ -550,8 +550,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 
       <!-- ⚾ 중계 -->
       <div class="stat-section active" id="stat-relay">
-        <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;" id="relayDateBtns"></div>
-        <div id="relayContent"><div class="empty">⚾ 불러오는 중...</div></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <button class="cal-nav-btn" onclick="relayChangeMonth(-1)">◀</button>
+          <span id="relayMonthLabel" style="font-size:14px;font-weight:500;min-width:70px;text-align:center;"></span>
+          <button class="cal-nav-btn" onclick="relayChangeMonth(1)">▶</button>
+        </div>
+        <div style="overflow-x:auto;padding-bottom:4px;margin-bottom:10px;">
+          <div style="display:flex;gap:6px;min-width:max-content;" id="relayDateBtns">
+            <div style="color:var(--text-hint);font-size:13px;padding:6px 0;">경기 일정 불러오는 중...</div>
+          </div>
+        </div>
+        <div id="relayContent"><div class="empty">⚾ 날짜를 선택하세요</div></div>
       </div>
 
       <!-- 📊 직관기록 -->
@@ -625,7 +634,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -1047,29 +1056,79 @@ function closePhotoModal() { document.getElementById('photoModal').classList.rem
 let relaySelectedDate = '';
 let relayMaxInning = 1;
 let relayCurrentInning = 1;
+let relayYear = 0;
+let relayMonth = 0;
+let relayGameDates = []; // 이달 경기 있는 날짜들
 
 function initRelay() {
   const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
   if(!relaySelectedDate) relaySelectedDate = today;
-  const btnsEl = document.getElementById('relayDateBtns');
-  const dates = [];
-  for(let i=6; i>=0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    dates.push(new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(d));
+  if(!relayYear) {
+    relayYear = parseInt(today.slice(0,4));
+    relayMonth = parseInt(today.slice(5,7));
   }
-  btnsEl.innerHTML = dates.map(d => {
-    const label = d === today ? '오늘' : d.slice(5).replace('-', '/');
-    const active = d === relaySelectedDate ? 'background:var(--primary);color:white;border-color:var(--primary);' : '';
-    return `<button onclick="selectRelayDate('${d}')" style="padding:6px 12px;font-size:12px;border-radius:20px;border:1px solid var(--border);background:white;color:var(--text-sub);cursor:pointer;white-space:nowrap;font-weight:500;flex-shrink:0;${active}">${label}</button>`;
+  loadRelayMonthSchedule();
+}
+
+async function loadRelayMonthSchedule() {
+  const pad = n => String(n).padStart(2,'0');
+  const fromDate = `${relayYear}-${pad(relayMonth)}-01`;
+  const lastDay = new Date(relayYear, relayMonth, 0).getDate();
+  const toDate = `${relayYear}-${pad(relayMonth)}-${pad(lastDay)}`;
+
+  document.getElementById('relayMonthLabel').textContent = `${relayYear}년 ${relayMonth}월`;
+  document.getElementById('relayDateBtns').innerHTML = '<div style="color:var(--text-hint);font-size:13px;padding:6px 0;">불러오는 중...</div>';
+
+  try {
+    const res = await fetch(`${SERVER_URL}/schedule/${favoriteTeam}?from=${fromDate}&to=${toDate}`, {
+      headers: {'Authorization': `Bearer ${token}`}
+    });
+    const data = await res.json();
+    relayGameDates = data.dates || [];
+  } catch(e) {
+    relayGameDates = [];
+  }
+
+  renderRelayDateBtns();
+  // 선택된 날짜가 이달에 없으면 첫 경기일 자동 선택
+  if(relayGameDates.length && !relayGameDates.includes(relaySelectedDate)) {
+    const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
+    relaySelectedDate = relayGameDates.includes(today) ? today : relayGameDates[relayGameDates.length-1];
+    loadRelay();
+  } else if(relayGameDates.includes(relaySelectedDate)) {
+    loadRelay();
+  }
+}
+
+function renderRelayDateBtns() {
+  const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
+  const btnsEl = document.getElementById('relayDateBtns');
+  if(!relayGameDates.length) {
+    btnsEl.innerHTML = '<div style="color:var(--text-hint);font-size:13px;padding:6px 0;">이달 경기 없음</div>';
+    return;
+  }
+  btnsEl.innerHTML = relayGameDates.map(d => {
+    const isToday = d === today;
+    const isSelected = d === relaySelectedDate;
+    const hasRecord = records.some(r => r.date === d);
+    const label = d.slice(5).replace('-', '/') + (isToday ? ' 오늘' : '') + (hasRecord ? ' ⚾' : '');
+    const activeStyle = isSelected ? 'background:var(--primary);color:white;border-color:var(--primary);' : '';
+    return `<button onclick="selectRelayDate('${d}')" style="padding:6px 12px;font-size:12px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text-sub);cursor:pointer;white-space:nowrap;font-weight:500;flex-shrink:0;${activeStyle}">${label}</button>`;
   }).join('');
-  loadRelay();
+}
+
+function relayChangeMonth(dir) {
+  relayMonth += dir;
+  if(relayMonth < 1) { relayMonth = 12; relayYear--; }
+  if(relayMonth > 12) { relayMonth = 1; relayYear++; }
+  loadRelayMonthSchedule();
 }
 
 function selectRelayDate(date) {
   relaySelectedDate = date;
   relayCurrentInning = 1;
-  initRelay();
+  renderRelayDateBtns();
+  loadRelay();
 }
 
 function renderInningBtns(maxInning, activeInning) {
@@ -1083,7 +1142,6 @@ function renderInningBtns(maxInning, activeInning) {
 
 async function loadInningContent(innNum) {
   relayCurrentInning = innNum;
-  // 버튼 active 업데이트
   for(let i=1; i<=relayMaxInning; i++) {
     const btn = document.getElementById(`relay-inn-btn-${i}`);
     if(!btn) continue;
@@ -1170,23 +1228,6 @@ async function loadRelay() {
       </div>`;
     }
 
-    // 주루
-    const b1=s.base1&&s.base1!=='0', b2=s.base2&&s.base2!=='0', b3=s.base3&&s.base3!=='0';
-    const baseHtml = `<div style="display:flex;align-items:center;gap:16px;justify-content:center;padding:8px 0;">
-      <div style="position:relative;width:48px;height:48px;">
-        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%) rotate(45deg);width:14px;height:14px;border:2px solid var(--border);border-radius:2px;${b2?'background:var(--primary);border-color:var(--primary);':''}"></div>
-        <div style="position:absolute;bottom:4px;right:2px;transform:rotate(45deg);width:14px;height:14px;border:2px solid var(--border);border-radius:2px;${b1?'background:var(--primary);border-color:var(--primary);':''}"></div>
-        <div style="position:absolute;bottom:4px;left:2px;transform:rotate(45deg);width:14px;height:14px;border:2px solid var(--border);border-radius:2px;${b3?'background:var(--primary);border-color:var(--primary);':''}"></div>
-      </div>
-      <div style="display:flex;gap:14px;">
-        <div class="relay-count-item"><div class="relay-count-label">볼</div><div class="relay-count-val" style="color:var(--green)">${s.ball}</div></div>
-        <div class="relay-count-item"><div class="relay-count-label">스트</div><div class="relay-count-val" style="color:var(--primary)">${s.strike}</div></div>
-        <div class="relay-count-item"><div class="relay-count-label">아웃</div><div class="relay-count-val" style="color:var(--red)">${s.out}</div></div>
-      </div>
-    </div>`;
-
-    const nowHtml = (s.pitcher||s.batter)?`<div class="relay-now">${s.pitcher?`⚾ <strong>${s.pitcher}</strong>`:''} ${s.pitcher&&s.batter?'→':''} ${s.batter?`🏏 <strong>${s.batter}</strong>`:''}</div>`:'';
-
     el.innerHTML = `
       <div class="relay-scoreboard">
         <div class="relay-teams">
@@ -1194,9 +1235,8 @@ async function loadRelay() {
           <div class="relay-vs">vs</div>
           <div class="relay-team"><div class="relay-team-name">${homeName}</div><div class="relay-team-score">${s.home_score}</div></div>
         </div>
-        ${inningHtml}${baseHtml}
+        ${inningHtml}
       </div>
-      ${nowHtml}
       <button class="relay-refresh-btn" onclick="loadRelay()">🔄 새로고침</button>
       <div style="overflow-x:auto;padding-bottom:4px;margin-bottom:8px;">
         <div style="display:flex;gap:6px;min-width:max-content;" id="relayInningBtns">
