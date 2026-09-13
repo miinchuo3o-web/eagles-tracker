@@ -782,12 +782,23 @@ def get_relay(team_code):
             'NC':'NC','KT':'KT','HT':'KIA','WO':'키움','LT':'롯데'
         }
 
-        # 중계 텍스트 파싱
-        parsed_relays = []
-        for relay in text_relays[:30]:
+        # 중계 텍스트 파싱 - 이닝별로 그룹핑
+        innings_data = {}
+        current_inning_key = None
+
+        for relay in text_relays:
             title = relay.get('title', '')
             title_style = str(relay.get('titleStyle', ''))
+            inn = relay.get('inn', 0)
+            home_or_away = relay.get('homeOrAway', '0')  # '0'=초, '1'=말
             options = relay.get('textOptions') or []
+
+            # 이닝 헤더 (type 0)
+            if title_style == '0':
+                current_inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
+                if current_inning_key not in innings_data:
+                    innings_data[current_inning_key] = {'title': title, 'inn': inn, 'half': home_or_away, 'plays': []}
+                continue
 
             pitches = []
             result_text = ''
@@ -816,13 +827,25 @@ def get_relay(team_code):
                 elif t == 13:
                     result_text = text
 
-            parsed_relays.append({
-                'title': title,
-                'title_style': title_style,
-                'bat_result': bat_result,
-                'pitches': pitches,
-                'result_text': result_text,
-            })
+            if title and not title.startswith('==='):
+                inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
+                if inning_key not in innings_data:
+                    innings_data[inning_key] = {'title': f"{inn}{'회말' if home_or_away=='1' else '회초'} 공격", 'inn': inn, 'half': home_or_away, 'plays': []}
+                innings_data[inning_key]['plays'].append({
+                    'title': title,
+                    'bat_result': bat_result,
+                    'pitches': pitches,
+                    'result_text': result_text,
+                })
+
+        # 이닝 순서 정렬
+        def inning_sort_key(k):
+            inn_num = innings_data[k]['inn']
+            half = 0 if innings_data[k]['half'] == '0' else 1
+            return inn_num * 2 + half
+
+        sorted_innings = sorted(innings_data.keys(), key=inning_sort_key)
+        innings_list = [{'key': k, **innings_data[k]} for k in sorted_innings]
 
         return jsonify({
             'game_id': game_id,
@@ -842,7 +865,7 @@ def get_relay(team_code):
                 'batter': batter_name,
             },
             'inning_score': inning_score,
-            'relays': parsed_relays,
+            'innings': innings_list,
             'home_team': home_code,
             'away_team': away_code,
             'home_team_name': TEAM_NAMES.get(home_code, home_code),

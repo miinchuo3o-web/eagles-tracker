@@ -250,7 +250,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .relay-pitch-stuff{font-size:10px;color:var(--text-hint);}
 .relay-pitch-speed{font-size:10px;color:var(--text-hint);margin-left:auto;}
 .relay-result-text{font-size:13px;font-weight:600;color:var(--text);padding:6px 0;border-top:.5px solid var(--border);margin-top:4px;}
-.relay-refresh-btn{width:100%;padding:10px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text-sub);cursor:pointer;margin-bottom:10px;}
+.relay-inning-btn{padding:6px 12px;font-size:12px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text-sub);cursor:pointer;white-space:nowrap;font-weight:500;flex-shrink:0;}
+.relay-inning-btn.active{background:var(--primary);color:white;border-color:var(--primary);}
 .relay-refresh-btn:active{background:var(--card);}
 .relay-no-game{text-align:center;padding:32px;color:var(--text-hint);}
 .relay-loading{text-align:center;color:var(--text-hint);font-size:13px;padding:24px;}
@@ -573,6 +574,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
         <div class="stats-grid" id="statsGrid"></div>
         <div class="section-title">홈 / 원정</div>
         <div class="ha-grid" id="haGrid"></div>
+        <div class="section-title" style="margin-top:14px">기록 목록</div>
+        <div class="records-list" id="recordsList"></div>
       </div>
 
       <!-- 상대팀별 -->
@@ -624,13 +627,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
       <div class="stat-section" id="stat-news">
         <div id="newsList"><div class="empty">뉴스 탭을 클릭하면 최신 기사를 불러와요 📰</div></div>
       </div>
-    
-    <div class="card">
-      <div class="section-title">기록 목록</div>
-      <div class="records-list" id="recordsList"></div>
     </div>
   </div>
-</div>
 
 <!-- 비밀번호 변경 모달 -->
 <div class="pw-modal" id="pwModal">
@@ -661,7 +659,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -1101,6 +1099,11 @@ function selectRelayDate(date) {
   initRelay();
 }
 
+function showInning(idx) {
+  document.querySelectorAll('.relay-inning-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  document.querySelectorAll('.relay-inning-content').forEach((c,i)=>c.style.display=i===idx?'block':'none');
+}
+
 async function loadRelay() {
   const date = relaySelectedDate || new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
   const el = document.getElementById('relayContent');
@@ -1171,56 +1174,59 @@ async function loadRelay() {
         ${s.batter?`🏏 <strong>${s.batter}</strong>`:''}
       </div>` : '';
 
-    // 중계 텍스트
-    const PITCH_RESULT_MAP = {'T':'스트라이크','S':'헛스윙','F':'파울','B':'볼','H':'타격','O':'아웃'};
-    const relayHtml = data.relays.map(r => {
-      if(!r.title) return '';
-      const isInning = r.title_style === '0';
-      if(isInning) return `<div class="relay-item"><div class="relay-item-header inning">${r.title}</div></div>`;
-      if(r.title.startsWith('===')) return '';
+    // 이닝별 선택 버튼
+    const inningsData = data.innings || [];
+    const inningBtns = inningsData.map((inn, idx) => {
+      const label = inn.key;
+      return `<button class="relay-inning-btn" id="inning-btn-${idx}" onclick="showInning(${idx})">${label}</button>`;
+    }).join('');
 
-      const prevResults = r.bat_result ? r.bat_result.split('|').filter(Boolean) : [];
-      const prevHtml = prevResults.length ? `<div class="relay-item-prev">이전 타석: ${prevResults.join(' → ')}</div>` : '';
-
-      const pitchesHtml = r.pitches.map((p,i)=>{
-        const pr = PITCH_RESULT_MAP[p.result] || p.text;
-        const cls = ['T','S','F'].includes(p.result)?'strike':p.result==='B'?'ball':'';
-        return `<div class="relay-pitch-row">
-          <span class="relay-pitch-num">${i+1}구</span>
-          <span class="relay-pitch-result ${cls}">${pr}</span>
-          ${p.stuff?`<span class="relay-pitch-stuff">${p.stuff}</span>`:''}
-          ${p.speed?`<span class="relay-pitch-speed">${p.speed}km/h</span>`:''}
+    // 이닝별 중계 내용
+    const PITCH_MAP = {'T':'스트라이크','S':'헛스윙','F':'파울','B':'볼','H':'타격','O':'아웃'};
+    const inningContents = inningsData.map((inn, idx) => {
+      const plays = inn.plays || [];
+      const playsHtml = plays.map(r => {
+        const prevResults = r.bat_result ? r.bat_result.split('|').filter(Boolean) : [];
+        const prevHtml = prevResults.length ? `<div class="relay-item-prev">이전 타석: ${prevResults.join(' → ')}</div>` : '';
+        const pitchesHtml = r.pitches.map((p,i)=>{
+          const pr = PITCH_MAP[p.result] || p.text;
+          const cls = ['T','S','F'].includes(p.result)?'strike':p.result==='B'?'ball':'';
+          return `<div class="relay-pitch-row">
+            <span class="relay-pitch-num">${i+1}구</span>
+            <span class="relay-pitch-result ${cls}">${pr}</span>
+            ${p.stuff?`<span class="relay-pitch-stuff">${p.stuff}</span>`:''}
+            ${p.speed?`<span class="relay-pitch-speed">${p.speed}km/h</span>`:''}
+          </div>`;
+        }).join('');
+        const resultHtml = r.result_text ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
+        if(!prevHtml && !pitchesHtml && !resultHtml) return '';
+        return `<div class="relay-item">
+          <div class="relay-item-header">${r.title}</div>
+          <div class="relay-item-body">${prevHtml}${pitchesHtml}${resultHtml}</div>
         </div>`;
       }).join('');
-
-      const resultHtml = r.result_text ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
-      if(!prevHtml && !pitchesHtml && !resultHtml) return '';
-
-      return `<div class="relay-item">
-        <div class="relay-item-header">${r.title}</div>
-        <div class="relay-item-body">${prevHtml}${pitchesHtml}${resultHtml}</div>
-      </div>`;
+      return `<div class="relay-inning-content" id="inning-content-${idx}" style="display:none">${playsHtml||'<div class="empty">기록 없음</div>'}</div>`;
     }).join('');
 
     el.innerHTML = `
       <div class="relay-scoreboard">
         <div class="relay-teams">
-          <div class="relay-team">
-            <div class="relay-team-name">${awayName}</div>
-            <div class="relay-team-score">${s.away_score}</div>
-          </div>
+          <div class="relay-team"><div class="relay-team-name">${awayName}</div><div class="relay-team-score">${s.away_score}</div></div>
           <div class="relay-vs">vs</div>
-          <div class="relay-team">
-            <div class="relay-team-name">${homeName}</div>
-            <div class="relay-team-score">${s.home_score}</div>
-          </div>
+          <div class="relay-team"><div class="relay-team-name">${homeName}</div><div class="relay-team-score">${s.home_score}</div></div>
         </div>
         ${inningHtml}
         ${baseHtml}
       </div>
       ${nowHtml}
       <button class="relay-refresh-btn" onclick="loadRelay()">🔄 새로고침</button>
-      <div class="relay-list">${relayHtml}</div>`;
+      <div style="overflow-x:auto;padding-bottom:4px;margin-bottom:8px;">
+        <div style="display:flex;gap:6px;min-width:max-content;">${inningBtns}</div>
+      </div>
+      <div id="relayInningContents">${inningContents}</div>`;
+
+    // 마지막 이닝 자동 선택
+    if(inningsData.length > 0) showInning(inningsData.length - 1);
   } catch(e) {
     el.innerHTML = `<div class="relay-no-game">불러오기 실패 😢<br><span style="font-size:11px">${e.message}</span></div>`;
   }
