@@ -782,22 +782,26 @@ def get_relay(team_code):
             'NC':'NC','KT':'KT','HT':'KIA','WO':'키움','LT':'롯데'
         }
 
-        # 중계 텍스트 파싱 - 이닝별로 그룹핑
+        # 중계 텍스트 파싱 - 이닝별로 그룹핑 (데이터는 역순으로 옴)
         innings_data = {}
-        current_inning_key = None
 
         for relay in text_relays:
             title = relay.get('title', '')
-            title_style = str(relay.get('titleStyle', ''))
-            inn = relay.get('inn', 0)
-            home_or_away = relay.get('homeOrAway', '0')  # '0'=초, '1'=말
+            title_style = relay.get('titleStyle')  # 정수로 올 수 있음
+            inn = int(relay.get('inn', 0) or 0)
+            home_or_away = str(relay.get('homeOrAway', '0'))  # '0'=초, '1'=말
             options = relay.get('textOptions') or []
 
-            # 이닝 헤더 (type 0)
-            if title_style == '0':
-                current_inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
-                if current_inning_key not in innings_data:
-                    innings_data[current_inning_key] = {'title': title, 'inn': inn, 'half': home_or_away, 'plays': []}
+            inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
+
+            # 이닝 헤더 (titleStyle == 0) - 스킵
+            if str(title_style) == '0':
+                if inning_key not in innings_data:
+                    innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
+                continue
+
+            # === 구분선 스킵
+            if not title or title.startswith('===') or str(title_style) == '99':
                 continue
 
             pitches = []
@@ -827,25 +831,34 @@ def get_relay(team_code):
                 elif t == 13:
                     result_text = text
 
-            if title and not title.startswith('==='):
-                inning_key = f"{inn}{'말' if home_or_away=='1' else '초'}"
-                if inning_key not in innings_data:
-                    innings_data[inning_key] = {'title': f"{inn}{'회말' if home_or_away=='1' else '회초'} 공격", 'inn': inn, 'half': home_or_away, 'plays': []}
-                innings_data[inning_key]['plays'].append({
-                    'title': title,
-                    'bat_result': bat_result,
-                    'pitches': pitches,
-                    'result_text': result_text,
-                })
+            if inning_key not in innings_data:
+                innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
 
-        # 이닝 순서 정렬
+            innings_data[inning_key]['plays'].append({
+                'title': title,
+                'bat_result': bat_result,
+                'pitches': pitches,
+                'result_text': result_text,
+            })
+
+        # 이닝 순서 정렬 (역순 데이터이므로 plays도 뒤집기)
         def inning_sort_key(k):
-            inn_num = innings_data[k]['inn']
-            half = 0 if innings_data[k]['half'] == '0' else 1
-            return inn_num * 2 + half
+            d = innings_data[k]
+            return d['inn'] * 2 + (1 if d['half'] == '1' else 0)
 
         sorted_innings = sorted(innings_data.keys(), key=inning_sort_key)
-        innings_list = [{'key': k, **innings_data[k]} for k in sorted_innings]
+        innings_list = []
+        for k in sorted_innings:
+            d = innings_data[k]
+            inn = d['inn']
+            half = d['half']
+            plays = list(reversed(d['plays']))  # 역순 → 정순으로
+            innings_list.append({
+                'key': k,
+                'inn': inn,
+                'half': half,
+                'plays': plays,
+            })
 
         return jsonify({
             'game_id': game_id,
