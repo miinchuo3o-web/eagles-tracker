@@ -539,7 +539,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
     <!-- 통계 카드 -->
     <div class="card">
       <div class="stat-nav">
-        <button class="stat-nav-btn active" onclick="switchStatNav('calendar')">📅 달력</button>
+        <button class="stat-nav-btn active" onclick="switchStatNav('relay')">⚾ 중계</button>
+        <button class="stat-nav-btn" onclick="switchStatNav('calendar')">📅 달력</button>
         <button class="stat-nav-btn" onclick="switchStatNav('overview')">리스트</button>
         <button class="stat-nav-btn" onclick="switchStatNav('player')">⭐ 선수</button>
         <button class="stat-nav-btn" onclick="switchStatNav('vs')">상대팀별</button>
@@ -548,11 +549,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
         <button class="stat-nav-btn" onclick="switchStatNav('money')">지출</button>
         <button class="stat-nav-btn" onclick="switchStatNav('milestone')">마일스톤</button>
         <button class="stat-nav-btn" onclick="switchStatNav('news')">📰 뉴스</button>
-        <button class="stat-nav-btn" onclick="switchStatNav('relay')">⚾ 중계</button>
+      </div>
+
+      <!-- ⚾ 중계 -->
+      <div class="stat-section active" id="stat-relay">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+          <input type="date" id="relayDateInput" style="flex:1;padding:8px 10px;font-size:14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);"/>
+          <button onclick="loadRelay()" style="padding:8px 14px;font-size:13px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:white;cursor:pointer;white-space:nowrap;">조회</button>
+        </div>
+        <div id="relayContent"><div class="empty">⚾ 날짜를 선택하고 조회하세요!</div></div>
       </div>
 
       <!-- 📅 달력 -->
-      <div class="stat-section active" id="stat-calendar">
+      <div class="stat-section" id="stat-calendar">
         <div class="cal-header">
           <button class="cal-nav-btn" onclick="changeMonth(-1)">◀</button>
           <span id="calMonthLabel" style="font-size:15px;font-weight:500;"></span>
@@ -618,11 +627,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
       <div class="stat-section" id="stat-news">
         <div id="newsList"><div class="empty">뉴스 탭을 클릭하면 최신 기사를 불러와요 📰</div></div>
       </div>
-
-      <!-- ⚾ 중계 -->
-      <div class="stat-section" id="stat-relay">
-        <div id="relayContent"><div class="empty">⚾ 중계 탭을 누르면 오늘 경기를 불러와요!</div></div>
-      </div>
     
     <div class="card">
       <div class="section-title">기록 목록</div>
@@ -660,7 +664,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -684,7 +688,7 @@ let foundGame = null, editResult = null, manResult = null;
 let autoMoods = [], manMoods = [];
 let editMood = '', manMood = '';
 let selectedTeamForRegister = '';
-let currentStatNav = 'calendar';
+let currentStatNav = 'relay';
 
 // ── 인증 ────────────────────────────────────────────
 let authMode = 'login';
@@ -831,7 +835,7 @@ function switchTab(t){
 }
 function switchStatNav(t){
   currentStatNav=t;
-  const tabs=['calendar','overview','player','vs','day','gallery','money','milestone','news','relay'];
+  const tabs=['relay','calendar','overview','player','vs','day','gallery','money','milestone','news'];
   document.querySelectorAll('.stat-nav-btn').forEach((b,i)=>b.classList.toggle('active',tabs[i]===t));
   document.querySelectorAll('.stat-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('stat-'+t).classList.add('active');
@@ -839,7 +843,7 @@ function switchStatNav(t){
   if(t==='player') loadFavPlayers();
   if(t==='calendar') renderCalendar();
   if(t==='news') loadNews();
-  if(t==='relay') loadRelay();
+  if(t==='relay') initRelay();
 }
 function setEditResult(v){editResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('et-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
 function setManResult(v){manResult=v;['win','lose','draw'].forEach(c=>{document.getElementById('mt-'+c).className=v==='승'&&c==='win'?'sel-win':v==='패'&&c==='lose'?'sel-lose':v==='무'&&c==='draw'?'sel-draw':''});}
@@ -1070,62 +1074,73 @@ function openPhotoModal(url, info) {
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
 
 // ── 문자중계 ──────────────────────────────────────────
-async function loadRelay(refresh=false) {
+function initRelay() {
+  const input = document.getElementById('relayDateInput');
+  if(!input.value) {
+    const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
+    input.value = today;
+    input.max = today;
+  }
+  loadRelay();
+}
+
+async function loadRelay() {
+  const dateInput = document.getElementById('relayDateInput');
+  const date = dateInput?.value || new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
   const el = document.getElementById('relayContent');
-  el.innerHTML = '<div class="relay-loading">⚾ 오늘 경기 불러오는 중...</div>';
+  el.innerHTML = '<div class="relay-loading">⚾ 경기 정보 불러오는 중...</div>';
   try {
-    const res = await fetch(`${SERVER_URL}/relay/${favoriteTeam}`, {
+    const res = await fetch(`${SERVER_URL}/relay/${favoriteTeam}?date=${date}`, {
       headers: {'Authorization': `Bearer ${token}`}
     });
     const data = await res.json();
 
-    if(data.no_game || data.error === '오늘 경기가 없어요') {
-      el.innerHTML = `<div class="relay-no-game">⚾<br><br>오늘 경기가 없어요<br><span style="font-size:12px;color:var(--text-hint)">경기 있는 날 다시 확인해봐요!</span></div>`;
+    if(data.no_game) {
+      el.innerHTML = `<div class="relay-no-game">⚾<br><br>${date}<br>경기가 없어요!</div>`;
       return;
     }
-    if(data.error) { el.innerHTML = `<div class="relay-no-game">불러오기 실패: ${data.error}</div>`; return; }
+    if(data.error) {
+      el.innerHTML = `<div class="relay-no-game">불러오기 실패 😢<br><span style="font-size:11px;color:var(--text-hint)">${data.error}</span></div>`;
+      return;
+    }
 
-    const TEAMS = window.TEAMS_DATA || {};
-    const t = TEAMS[favoriteTeam] || {};
-    const homeName = data.home_team || '';
-    const awayName = data.away_team || '';
+    const homeName = data.home_team_name || data.home_team || '';
+    const awayName = data.away_team_name || data.away_team || '';
 
     // 이닝 스코어 테이블
     const innings = Object.keys(data.inning_score?.home || {}).sort((a,b)=>parseInt(a)-parseInt(b));
     let inningHtml = '';
     if(innings.length) {
-      const headerCells = ['', ...innings, 'R', 'H'].map((i,idx)=>
-        idx===0 ? `<div class="relay-inning-cell team">팀</div>` :
-        idx>innings.length ? `<div class="relay-inning-cell total">${i}</div>` :
-        `<div class="relay-inning-cell header">${i}</div>`
-      ).join('');
-      const homeScore = data.state.home_score;
-      const awayScore = data.state.away_score;
+      const s = data.state;
       const makeCells = (side) => {
         const scores = data.inning_score[side] || {};
-        const cells = innings.map(i => `<div class="relay-inning-cell">${scores[i]??''}</div>`).join('');
-        const totalScore = side==='home' ? homeScore : awayScore;
-        const totalHit = side==='home' ? data.state.home_hit : data.state.away_hit;
-        return `<div class="relay-inning-cell team">${side==='home'?homeName:awayName}</div>${cells}<div class="relay-inning-cell total">${totalScore}</div><div class="relay-inning-cell total">${totalHit}</div>`;
+        const cells = innings.map(i=>`<div class="relay-inning-cell">${scores[i]??''}</div>`).join('');
+        const totalScore = side==='home'?s.home_score:s.away_score;
+        const totalHit = side==='home'?s.home_hit:s.away_hit;
+        const name = side==='home'?homeName:awayName;
+        return `<div class="relay-inning-cell team">${name}</div>${cells}<div class="relay-inning-cell total">${totalScore}</div><div class="relay-inning-cell total">${totalHit}</div>`;
       };
-      inningHtml = `
-        <div class="relay-inning-grid">
-          <div class="relay-inning-row">${headerCells}<div class="relay-inning-cell total">H</div></div>
-          <div class="relay-inning-row">${makeCells('away')}</div>
-          <div class="relay-inning-row">${makeCells('home')}</div>
-        </div>`;
+      const headerCells = `<div class="relay-inning-cell team"></div>${innings.map(i=>`<div class="relay-inning-cell header">${i}</div>`).join('')}<div class="relay-inning-cell total">R</div><div class="relay-inning-cell total">H</div>`;
+      inningHtml = `<div class="relay-inning-grid">
+        <div class="relay-inning-row">${headerCells}</div>
+        <div class="relay-inning-row">${makeCells('away')}</div>
+        <div class="relay-inning-row">${makeCells('home')}</div>
+      </div>`;
     }
 
     // 볼카운트 & 주루
     const s = data.state;
+    const b1 = s.base1 && s.base1!=='0';
+    const b2 = s.base2 && s.base2!=='0';
+    const b3 = s.base3 && s.base3!=='0';
     const baseHtml = `
-      <div style="display:flex;align-items:center;gap:12px;justify-content:center;">
-        <div style="position:relative;width:46px;height:46px;">
-          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%) rotate(45deg);width:13px;height:13px;border:2px solid var(--border);border-radius:2px;${s.base2!=='0'&&s.base2?'background:var(--primary);border-color:var(--primary);':''}"></div>
-          <div style="position:absolute;bottom:0;left:4px;transform:rotate(45deg);width:13px;height:13px;border:2px solid var(--border);border-radius:2px;${s.base1!=='0'&&s.base1?'background:var(--primary);border-color:var(--primary);':''}"></div>
-          <div style="position:absolute;bottom:0;right:4px;transform:rotate(45deg);width:13px;height:13px;border:2px solid var(--border);border-radius:2px;${s.base3!=='0'&&s.base3?'background:var(--primary);border-color:var(--primary);':''}"></div>
+      <div style="display:flex;align-items:center;gap:16px;justify-content:center;padding:8px 0;">
+        <div style="position:relative;width:48px;height:48px;">
+          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%) rotate(45deg);width:14px;height:14px;border:2px solid var(--border);border-radius:2px;${b2?'background:var(--primary);border-color:var(--primary);':''}"></div>
+          <div style="position:absolute;bottom:4px;right:2px;transform:rotate(45deg);width:14px;height:14px;border:2px solid var(--border);border-radius:2px;${b1?'background:var(--primary);border-color:var(--primary);':''}"></div>
+          <div style="position:absolute;bottom:4px;left:2px;transform:rotate(45deg);width:14px;height:14px;border:2px solid var(--border);border-radius:2px;${b3?'background:var(--primary);border-color:var(--primary);':''}"></div>
         </div>
-        <div style="display:flex;gap:12px;">
+        <div style="display:flex;gap:14px;">
           <div class="relay-count-item"><div class="relay-count-label">볼</div><div class="relay-count-val" style="color:var(--green)">${s.ball}</div></div>
           <div class="relay-count-item"><div class="relay-count-label">스트</div><div class="relay-count-val" style="color:var(--primary)">${s.strike}</div></div>
           <div class="relay-count-item"><div class="relay-count-label">아웃</div><div class="relay-count-val" style="color:var(--red)">${s.out}</div></div>
@@ -1133,11 +1148,11 @@ async function loadRelay(refresh=false) {
       </div>`;
 
     // 현재 투수/타자
-    const nowHtml = s.pitcher || s.batter ? `
+    const nowHtml = (s.pitcher || s.batter) ? `
       <div class="relay-now">
-        ${s.pitcher ? `⚾ 투수 <strong>${s.pitcher}</strong>` : ''}
-        ${s.pitcher && s.batter ? '&nbsp;→&nbsp;' : ''}
-        ${s.batter ? `🏏 타자 <strong>${s.batter}</strong>` : ''}
+        ${s.pitcher?`⚾ <strong>${s.pitcher}</strong>`:''}
+        ${s.pitcher&&s.batter?' → ':''}
+        ${s.batter?`🏏 <strong>${s.batter}</strong>`:''}
       </div>` : '';
 
     // 중계 텍스트
@@ -1145,15 +1160,15 @@ async function loadRelay(refresh=false) {
     const relayHtml = data.relays.map(r => {
       if(!r.title) return '';
       const isInning = r.title_style === '0';
-      const headerClass = isInning ? 'relay-item-header inning' : 'relay-item-header';
-      if(isInning) return `<div class="relay-item"><div class="${headerClass}">${r.title}</div></div>`;
+      if(isInning) return `<div class="relay-item"><div class="relay-item-header inning">${r.title}</div></div>`;
+      if(r.title.startsWith('===')) return '';
 
       const prevResults = r.bat_result ? r.bat_result.split('|').filter(Boolean) : [];
       const prevHtml = prevResults.length ? `<div class="relay-item-prev">이전 타석: ${prevResults.join(' → ')}</div>` : '';
 
-      const pitchesHtml = r.pitches.map((p,i) => {
+      const pitchesHtml = r.pitches.map((p,i)=>{
         const pr = PITCH_RESULT_MAP[p.result] || p.text;
-        const cls = ['T','S','F'].includes(p.result)?'strike':p.result==='B'?'ball':p.result==='O'?'out':'';
+        const cls = ['T','S','F'].includes(p.result)?'strike':p.result==='B'?'ball':'';
         return `<div class="relay-pitch-row">
           <span class="relay-pitch-num">${i+1}구</span>
           <span class="relay-pitch-result ${cls}">${pr}</span>
@@ -1163,19 +1178,15 @@ async function loadRelay(refresh=false) {
       }).join('');
 
       const resultHtml = r.result_text ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
+      if(!prevHtml && !pitchesHtml && !resultHtml) return '';
 
       return `<div class="relay-item">
-        <div class="${headerClass}">${r.title}</div>
-        <div class="relay-item-body">
-          ${prevHtml}
-          ${pitchesHtml}
-          ${resultHtml}
-        </div>
+        <div class="relay-item-header">${r.title}</div>
+        <div class="relay-item-body">${prevHtml}${pitchesHtml}${resultHtml}</div>
       </div>`;
     }).join('');
 
     el.innerHTML = `
-      <button class="relay-refresh-btn" onclick="loadRelay(true)">🔄 새로고침</button>
       <div class="relay-scoreboard">
         <div class="relay-teams">
           <div class="relay-team">
@@ -1189,12 +1200,13 @@ async function loadRelay(refresh=false) {
           </div>
         </div>
         ${inningHtml}
-        <div class="relay-count">${baseHtml}</div>
+        ${baseHtml}
       </div>
       ${nowHtml}
+      <button class="relay-refresh-btn" onclick="loadRelay()">🔄 새로고침</button>
       <div class="relay-list">${relayHtml}</div>`;
   } catch(e) {
-    el.innerHTML = `<div class="relay-no-game">불러오기 실패 😢<br><span style="font-size:12px">${e.message}</span></div>`;
+    el.innerHTML = `<div class="relay-no-game">불러오기 실패 😢<br><span style="font-size:11px">${e.message}</span></div>`;
   }
 }
 let newsLoaded = false;
