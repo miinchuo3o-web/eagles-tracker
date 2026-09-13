@@ -251,7 +251,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 .relay-pitch-speed{font-size:10px;color:var(--text-hint);margin-left:auto;}
 .relay-result-text{font-size:13px;font-weight:600;color:var(--text);padding:6px 0;border-top:.5px solid var(--border);margin-top:4px;}
 .relay-hit-result{font-size:12px;color:var(--text);padding:2px 0 2px 24px;line-height:1.4;}
-.relay-event-line{font-size:12px;color:var(--text-sub);padding:4px 8px;margin:4px 0;background:var(--bg);border-radius:4px;text-align:center;border:.5px solid var(--border);}
+.relay-inline-event{font-size:11px;color:var(--text-sub);padding:3px 8px;margin:3px 0;background:var(--bg);border-radius:4px;border-left:2px solid var(--border);}
+.relay-event-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--text-sub);text-align:center;margin:4px 0;}
 .stats-sub-btn{padding:7px 16px;font-size:13px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--text-sub);cursor:pointer;font-weight:500;}
 .stats-sub-btn.active{background:var(--primary);color:white;border-color:var(--primary);}
 .milestone-badge{display:inline-block;background:var(--primary-light);color:var(--primary);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle;}
@@ -636,7 +637,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -1171,46 +1172,56 @@ function renderInningPlays(inningsData) {
 
   return inningsData.map(inn => {
     const innLabel = `${inn.inn}회${inn.half==='1'?'말':'초'}`;
+
     const playsHtml = (inn.plays||[]).map(r => {
-      // pitches 없고 result_text 없으면 스킵 (빈 타석)
-      if(!r.pitches?.length && !r.result_text && !r.events?.length) return '';
+      // 빈 타석 스킵
+      if(!r.pitches?.length && !r.result_text) return '';
 
+      // 이전 타석 기록
       const prevResults = r.bat_result ? r.bat_result.split('|').filter(Boolean) : [];
-      const prevHtml = prevResults.length ? `<div class="relay-item-prev">이전 타석: ${prevResults.join(' → ')}</div>` : '';
+      const prevHtml = prevResults.length
+        ? `<div class="relay-item-prev">이전 타석: ${prevResults.join(' → ')}</div>` : '';
 
-      // 타석 전 이벤트 (교체 등 pitches 전)
-      const beforeEventsHtml = (r.events||[]).map(e =>
-        `<div class="relay-event-line">${e.text}</div>`
-      ).join('');
-
-      // 투구 목록 (after_events 포함)
-      const pitchesHtml = (r.pitches||[]).map((p,i) => {
+      // 투구 목록 (인라인 이벤트 포함)
+      const pitchesHtml = (r.pitches||[]).map((p, i) => {
         const pr = PITCH_MAP[p.result] || p.text;
-        const cls = ['T','S','F'].includes(p.result)?'strike':p.result==='B'?'ball':'';
-        const hitResultHtml = p.hit_result ?
-          `<div class="relay-hit-result">└ ${p.hit_result.replace(/^.*?: /, '')}</div>` : '';
+        const cls = ['T','S','F'].includes(p.result) ? 'strike' : p.result==='B' ? 'ball' : '';
 
-        const afterEventsHtml = (p.after_events||[]).map(e =>
-          `<div class="relay-event-line">${e.text}</div>`
+        // 이 투구 전에 삽입될 인라인 이벤트 (폭투 결과 등)
+        const inlineBeforeHtml = (p.inline_before||[]).map(e =>
+          `<div class="relay-inline-event">${e.text}</div>`
         ).join('');
 
-        return `<div class="relay-pitch-row">
+        // 타격 결과 진루 (└ 형태)
+        const hitResultHtml = p.hit_result
+          ? `<div class="relay-hit-result">└ ${p.hit_result}</div>` : '';
+
+        return `${inlineBeforeHtml}<div class="relay-pitch-row">
           <span class="relay-pitch-num">${p.num||i+1}구</span>
           <span class="relay-pitch-result ${cls}">${pr}</span>
-          ${p.stuff?`<span class="relay-pitch-stuff">${p.stuff}</span>`:''}
-          ${p.speed?`<span class="relay-pitch-speed">${p.speed}km/h</span>`:''}
-        </div>${hitResultHtml}${afterEventsHtml}`;
+          ${p.stuff ? `<span class="relay-pitch-stuff">${p.stuff}</span>` : ''}
+          ${p.speed ? `<span class="relay-pitch-speed">${p.speed}km/h</span>` : ''}
+        </div>${hitResultHtml}`;
       }).join('');
 
-      // 최종 결과 (볼넷 등 타격 없는 결과)
-      const lastPitch = r.pitches?.[r.pitches.length-1];
+      // 볼넷/삼진 등 최종 결과 (타격 결과가 아닌 경우)
+      const lastPitch = r.pitches?.[r.pitches.length - 1];
       const showResult = r.result_text && !(lastPitch?.hit_result);
-      const resultHtml = showResult ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
+      const resultHtml = showResult
+        ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
 
-      return `<div class="relay-item">
+      // 타석 카드
+      const atBatCard = `<div class="relay-item">
         <div class="relay-item-header">${r.title}</div>
-        <div class="relay-item-body">${beforeEventsHtml}${prevHtml}${pitchesHtml}${resultHtml}</div>
+        <div class="relay-item-body">${prevHtml}${pitchesHtml}${resultHtml}</div>
       </div>`;
+
+      // 타석 카드 아래 교체 이벤트 카드들
+      const postEventsHtml = (r.post_events||[]).map(e =>
+        `<div class="relay-event-card">${e.text}</div>`
+      ).join('');
+
+      return atBatCard + postEventsHtml;
     }).join('');
 
     return `<div class="relay-item"><div class="relay-item-header inning">⚾ ${innLabel}</div></div>${playsHtml}`;

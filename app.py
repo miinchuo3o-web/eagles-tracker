@@ -565,11 +565,13 @@ def parse_relay_innings(text_relays):
         if str(title_style) == '0' or not title or title.startswith('===') or str(title_style) == '99':
             continue
 
-        pitches = []
-        events = []
+        pitches = []        # 투구 목록 (순서 포함 이벤트)
+        post_events = []    # 타석 카드 아래 별도 카드로 나올 교체 이벤트
         result_text = ''
         bat_result = ''
         pitch_count = 0
+        # 타석 내 인라인 이벤트 (폭투/진루 등): pitch에 끼워넣기 위해 별도 추적
+        inline_events_pending = []  # 다음 pitch 앞에 삽입될 이벤트
 
         for opt in options:
             t = opt.get('type')
@@ -578,24 +580,31 @@ def parse_relay_innings(text_relays):
             stuff = opt.get('stuff', '')
 
             if t == 8:
+                # 타자 등장 - batResult 추출
                 for side_key in ['home', 'away']:
                     gps = ((opt.get('currentPlayersInfo') or {}).get(side_key) or {}).get('currentGamePlayerStats') or {}
                     if gps.get('batResult'):
                         bat_result = gps['batResult']
 
-            elif t == 1 and speed:
-                pitch_count += 1
-                pitches.append({
-                    'num': pitch_count,
-                    'text': text,
-                    'speed': speed,
-                    'stuff': stuff,
-                    'result': opt.get('pitchResult', ''),
-                    'hit_result': '',
-                    'after_events': []
-                })
+            elif t == 1:
+                # 투구 (speed 있든 없든)
+                if speed or opt.get('pitchResult'):
+                    pitch_count += 1
+                    # 이 투구 앞에 삽입될 인라인 이벤트 flush
+                    pitch_entry = {
+                        'num': pitch_count,
+                        'text': text,
+                        'speed': speed,
+                        'stuff': stuff,
+                        'result': opt.get('pitchResult', ''),
+                        'hit_result': '',
+                        'inline_before': inline_events_pending[:]  # 이 투구 전 이벤트
+                    }
+                    inline_events_pending = []
+                    pitches.append(pitch_entry)
 
             elif t == 2:
+                # 선수 교체 → 타석 카드 아래 별도 카드
                 pc = opt.get('playerChange') or {}
                 in_player = pc.get('inPlayer') or {}
                 out_player = pc.get('outPlayer') or {}
@@ -610,28 +619,30 @@ def parse_relay_innings(text_relays):
                     event_text = f"🔄 대타 {in_name} IN / {out_name} OUT"
                 else:
                     event_text = text or f"🔄 {in_name} IN / {out_name} OUT"
-
-                if pitches:
-                    pitches[-1]['after_events'].append({'text': event_text, 'type': 'change'})
-                else:
-                    events.append({'text': event_text, 'type': 'change'})
+                post_events.append({'text': event_text})
 
             elif t == 7:
-                if text and text not in ['투수 투수판 이탈']:
-                    if pitches:
-                        pitches[-1]['after_events'].append({'text': f"── {text} ──", 'type': 'wild'})
+                # 폭투/보크/견제 등 - 투구 사이 인라인 이벤트로 pending
+                if text and '투수판 이탈' not in text:
+                    inline_events_pending.append({'text': f"── {text} ──", 'type': 'misc'})
 
             elif t == 13:
+                # 타격 결과
                 result_text = text
                 if pitches and pitches[-1]['result'] == 'H':
                     pitches[-1]['hit_result'] = text
 
             elif t == 14:
+                # 진루/득점 이벤트
                 if pitches and pitches[-1]['result'] == 'H':
+                    # 타격 직후 진루 → 마지막 pitch hit_result에 추가
                     prev = pitches[-1].get('hit_result', '')
                     pitches[-1]['hit_result'] = (prev + (' / ' if prev else '') + text).strip()
                 elif pitches:
-                    pitches[-1]['after_events'].append({'text': f"── {text} ──", 'type': 'advance'})
+                    # 투구 사이 진루 (폭투 결과 등) → 다음 pitch 앞에 삽입
+                    inline_events_pending.append({'text': f"── {text} ──", 'type': 'advance'})
+                else:
+                    inline_events_pending.append({'text': f"── {text} ──", 'type': 'advance'})
                 if not result_text and not (pitches and pitches[-1]['result'] == 'H'):
                     result_text = text
 
@@ -640,11 +651,11 @@ def parse_relay_innings(text_relays):
             'bat_result': bat_result,
             'pitches': pitches,
             'result_text': result_text,
-            'events': events,
+            'post_events': post_events,  # 타석 카드 아래 별도 카드
         }
         innings_data[inning_key]['plays'].append(play)
 
-    # carry-over: H pitch 결과 없는 타석 → 다음(과거) 타석 result_text로 채우기
+    # carry-over: H pitch 결과 없는 타석 → 바로 다음(과거) 타석 result_text로 채우기
     for ik, idata in innings_data.items():
         plays = idata['plays']
         for i in range(len(plays) - 1):
@@ -656,7 +667,13 @@ def parse_relay_innings(text_relays):
                     curr_last['hit_result'] = nxt['result_text']
                     curr['result_text'] = nxt['result_text']
 
-    sorted_keys = sorted(innings_data.keys(), key=lambda k: innings_data[k]['inn'] * 2 + (1 if innings_data[k]['half'] == '1' else 0))
+    # 이닝 정렬: 말이 위(먼저), 초가 아래(나중) — 역순이므로 말>초
+    def inn_sort(k):
+        d = innings_data[k]
+        # 말=0(위), 초=1(아래) 로 정렬
+        return d['inn'] * 2 + (0 if d['half'] == '1' else 1)
+
+    sorted_keys = sorted(innings_data.keys(), key=inn_sort)
     return [{'key': k, **innings_data[k]} for k in sorted_keys]
 KBO_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
