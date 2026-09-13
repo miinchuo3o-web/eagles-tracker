@@ -715,7 +715,9 @@ def remove_favorite_player(player_id):
 def get_relay(team_code):
     """팀 경기 문자중계 (날짜 선택 가능)"""
     try:
-        date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+        from datetime import timezone, timedelta
+        KST = timezone(timedelta(hours=9))
+        date = request.args.get('date', datetime.now(KST).strftime('%Y-%m-%d'))
         headers = {'User-Agent': 'Mozilla/5.0', 'Referer': 'https://m.sports.naver.com'}
 
         # 경기 일정 가져오기

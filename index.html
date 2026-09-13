@@ -553,11 +553,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 
       <!-- ⚾ 중계 -->
       <div class="stat-section active" id="stat-relay">
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
-          <input type="date" id="relayDateInput" style="flex:1;padding:8px 10px;font-size:14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);"/>
-          <button onclick="loadRelay()" style="padding:8px 14px;font-size:13px;border:none;border-radius:var(--radius-sm);background:var(--primary);color:white;cursor:pointer;white-space:nowrap;">조회</button>
-        </div>
-        <div id="relayContent"><div class="empty">⚾ 날짜를 선택하고 조회하세요!</div></div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px;" id="relayDateBtns"></div>
+        <div id="relayContent"><div class="empty">⚾ 불러오는 중...</div></div>
       </div>
 
       <!-- 📅 달력 -->
@@ -664,7 +661,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -1074,19 +1071,38 @@ function openPhotoModal(url, info) {
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
 
 // ── 문자중계 ──────────────────────────────────────────
+let relaySelectedDate = '';
+
 function initRelay() {
-  const input = document.getElementById('relayDateInput');
-  if(!input.value) {
-    const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
-    input.value = today;
-    input.max = today;
+  const today = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
+  if(!relaySelectedDate) relaySelectedDate = today;
+
+  // 날짜 버튼 생성 (최근 7일)
+  const btnsEl = document.getElementById('relayDateBtns');
+  const dates = [];
+  for(let i=6; i>=0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const str = new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(d);
+    dates.push(str);
   }
+  btnsEl.innerHTML = dates.map(d => {
+    const isToday = d === today;
+    const label = isToday ? '오늘' : d.slice(5).replace('-', '/');
+    const active = d === relaySelectedDate ? 'background:var(--primary);color:white;border-color:var(--primary);' : '';
+    return `<button onclick="selectRelayDate('${d}')" style="padding:6px 12px;font-size:12px;border-radius:20px;border:1px solid var(--border);background:white;color:var(--text-sub);cursor:pointer;white-space:nowrap;font-weight:500;flex-shrink:0;${active}">${label}</button>`;
+  }).join('');
+
   loadRelay();
 }
 
+function selectRelayDate(date) {
+  relaySelectedDate = date;
+  initRelay();
+}
+
 async function loadRelay() {
-  const dateInput = document.getElementById('relayDateInput');
-  const date = dateInput?.value || new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
+  const date = relaySelectedDate || new Intl.DateTimeFormat('fr-CA', {timeZone:'Asia/Seoul'}).format(new Date());
   const el = document.getElementById('relayContent');
   el.innerHTML = '<div class="relay-loading">⚾ 경기 정보 불러오는 중...</div>';
   try {
