@@ -870,12 +870,18 @@ def get_relay(team_code):
                         if gps.get('batResult'):
                             bat_result = gps['batResult']
                 elif t == 1 and speed:
-                    pitches.append({'text': text, 'speed': speed, 'stuff': stuff, 'result': opt.get('pitchResult', '')})
+                    pitches.append({'text': text, 'speed': speed, 'stuff': stuff, 'result': opt.get('pitchResult', ''), 'hit_result': ''})
                 elif t == 13:
                     result_text = text
-                    # 마지막 pitch가 타격(H)이면 거기에 결과 붙이기
                     if pitches and pitches[-1]['result'] == 'H':
                         pitches[-1]['hit_result'] = text
+                elif t == 14:
+                    # 주자 진루/득점 이벤트
+                    if pitches and pitches[-1]['result'] == 'H':
+                        prev = pitches[-1].get('hit_result', '')
+                        pitches[-1]['hit_result'] = (prev + (' / ' if prev else '') + text).strip()
+                    if not result_text:
+                        result_text = text
 
             if inning_key not in innings_data:
                 innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}
@@ -1017,15 +1023,19 @@ def get_relay(team_code):
                             bat_result = gps['batResult']
                 elif t == 1 and speed:
                     pitches.append({
-                        'text': text,
-                        'speed': speed,
-                        'stuff': stuff,
-                        'result': opt.get('pitchResult', '')
+                        'text': text, 'speed': speed, 'stuff': stuff,
+                        'result': opt.get('pitchResult', ''), 'hit_result': ''
                     })
                 elif t == 13:
                     result_text = text
                     if pitches and pitches[-1]['result'] == 'H':
                         pitches[-1]['hit_result'] = text
+                elif t == 14:
+                    if pitches and pitches[-1]['result'] == 'H':
+                        prev = pitches[-1].get('hit_result', '')
+                        pitches[-1]['hit_result'] = (prev + (' / ' if prev else '') + text).strip()
+                    if not result_text:
+                        result_text = text
 
             if inning_key not in innings_data:
                 innings_data[inning_key] = {'inn': inn, 'half': home_or_away, 'plays': []}

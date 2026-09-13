@@ -634,7 +634,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary);}
 </div>
 
 <script>
-const SERVER_URL = 'https://eagles-kbo-api-production.up.railway.app';
+const SERVER_URL = 'YOUR_RAILWAY_URL_HERE';
 
 const TEAMS = {
   'HH': {name:'한화', full:'한화 이글스',    emoji:'🦅', color:'#f97316', opponents:['삼성','KIA','LG','두산','SSG','NC','KT','롯데','키움']},
@@ -1183,7 +1183,9 @@ function renderInningPlays(inningsData) {
           ${hitResult}
         </div>`;
       }).join('');
-      const resultHtml = r.result_text ? `<div class="relay-result-text">→ ${r.result_text}</div>` : '';
+      const lastPitch = r.pitches[r.pitches.length-1];
+      const finalResult = r.result_text || (lastPitch?.hit_result) || '';
+      const resultHtml = finalResult ? `<div class="relay-result-text">→ ${finalResult}</div>` : '';
       if(!prevHtml && !pitchesHtml && !resultHtml) return '';
       return `<div class="relay-item">
         <div class="relay-item-header">${r.title}</div>
