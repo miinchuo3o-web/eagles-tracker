@@ -1103,59 +1103,64 @@ def get_news(team_code):
 def health():
     return jsonify({'status': 'ok'})
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
-
-# ── 일기 DB 초기화 ──────────────────────────────────────
-def init_diary_db():
+# ── 지출관리 DB / API ─────────────────────────────────
+def init_ledger_db():
     conn = get_db()
     cur = conn.cursor()
     try:
+        cur.execute('DROP TABLE IF EXISTS diaries')
         cur.execute('''
-            CREATE TABLE IF NOT EXISTS diaries (
+            CREATE TABLE IF NOT EXISTS ledger (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id),
                 date TEXT NOT NULL,
-                mood TEXT DEFAULT '',
-                weather TEXT DEFAULT '',
-                qs JSONB DEFAULT '{}',
-                summary TEXT DEFAULT '',
-                day_cat TEXT DEFAULT '',
-                created_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE(user_id, date)
+                kind TEXT NOT NULL,
+                category TEXT NOT NULL,
+                amount BIGINT NOT NULL,
+                memo TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT NOW()
             );
         ''')
-        conn.commit()
-        # day_cat 컬럼 추가 (기존 DB 호환)
-        try:
-            cur.execute("ALTER TABLE diaries ADD COLUMN IF NOT EXISTS day_cat TEXT DEFAULT ''")
-            conn.commit()
-        except:
-            conn.rollback()
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_ledger_user_date ON ledger(user_id, date)')
         conn.commit()
     except Exception as e:
         conn.rollback()
-        print(f"Diary DB init error: {e}")
+        print(f"Ledger DB init error: {e}")
     finally:
         cur.close()
         conn.close()
 
 try:
-    init_diary_db()
+    init_ledger_db()
 except Exception as e:
-    print(f"Diary init error: {e}")
+    print(f"Ledger init error: {e}")
 
-# ── 일기 API ────────────────────────────────────────────
-@app.route('/diary', methods=['GET'])
-def get_diaries():
+def _ledger_fields(d):
+    kind = d.get('kind')
+    if kind not in ('income', 'expense'):
+        return None
+    try:
+        amount = int(d.get('amount', 0))
+    except (TypeError, ValueError):
+        return None
+    if amount <= 0 or not d.get('date') or not d.get('category'):
+        return None
+    return (d['date'], kind, d['category'], amount, (d.get('memo') or '')[:200])
+
+@app.route('/ledger', methods=['GET'])
+def get_ledger():
     user_id = auth_required()
     if not user_id:
         return jsonify({'error': '로그인이 필요해요'}), 401
+    month = request.args.get('month', '')  # YYYY-MM
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('SELECT * FROM diaries WHERE user_id=%s ORDER BY date DESC', (user_id,))
+        if month:
+            cur.execute('SELECT id,date,kind,category,amount,memo FROM ledger WHERE user_id=%s AND date LIKE %s ORDER BY date DESC, id DESC',
+                        (user_id, month + '%'))
+        else:
+            cur.execute('SELECT id,date,kind,category,amount,memo FROM ledger WHERE user_id=%s ORDER BY date DESC, id DESC', (user_id,))
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -1163,22 +1168,40 @@ def get_diaries():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/diary', methods=['POST'])
-def save_diary():
+@app.route('/ledger', methods=['POST'])
+def add_ledger():
     user_id = auth_required()
     if not user_id:
         return jsonify({'error': '로그인이 필요해요'}), 401
-    import json
-    d = request.json or {}
+    f = _ledger_fields(request.json or {})
+    if not f:
+        return jsonify({'error': '입력값을 확인해주세요'}), 400
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('''INSERT INTO diaries (user_id, date, mood, weather, qs, day_cat)
-            VALUES (%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (user_id, date) DO UPDATE
-            SET mood=EXCLUDED.mood, weather=EXCLUDED.weather, qs=EXCLUDED.qs, day_cat=EXCLUDED.day_cat''',
-            (user_id, d['date'], d.get('mood',''), d.get('weather',''),
-             json.dumps(d.get('qs',{}), ensure_ascii=False), d.get('day_cat','')))
+        cur.execute('INSERT INTO ledger (user_id,date,kind,category,amount,memo) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id',
+                    (user_id,) + f)
+        new_id = cur.fetchone()['id']
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'ok': True, 'id': new_id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/ledger/<int:item_id>', methods=['PUT'])
+def update_ledger(item_id):
+    user_id = auth_required()
+    if not user_id:
+        return jsonify({'error': '로그인이 필요해요'}), 401
+    f = _ledger_fields(request.json or {})
+    if not f:
+        return jsonify({'error': '입력값을 확인해주세요'}), 400
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE ledger SET date=%s,kind=%s,category=%s,amount=%s,memo=%s WHERE id=%s AND user_id=%s',
+                    f + (item_id, user_id))
         conn.commit()
         cur.close()
         conn.close()
@@ -1186,17 +1209,15 @@ def save_diary():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/diary/summary', methods=['POST'])
-def save_summary():
+@app.route('/ledger/<int:item_id>', methods=['DELETE'])
+def delete_ledger(item_id):
     user_id = auth_required()
     if not user_id:
         return jsonify({'error': '로그인이 필요해요'}), 401
-    d = request.json or {}
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('UPDATE diaries SET summary=%s WHERE user_id=%s AND date=%s',
-                    (d.get('summary',''), user_id, d['date']))
+        cur.execute('DELETE FROM ledger WHERE id=%s AND user_id=%s', (item_id, user_id))
         conn.commit()
         cur.close()
         conn.close()
@@ -1204,18 +1225,5 @@ def save_summary():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/diary/<date>', methods=['DELETE'])
-def delete_diary(date):
-    user_id = auth_required()
-    if not user_id:
-        return jsonify({'error': '로그인이 필요해요'}), 401
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute('DELETE FROM diaries WHERE user_id=%s AND date=%s', (user_id, date))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
