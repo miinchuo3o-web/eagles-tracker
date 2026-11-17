@@ -1002,6 +1002,7 @@ function openPhotoModal(url, info) {
 }
 function closePhotoModal() { document.getElementById('photoModal').classList.remove('open'); }
 
+let newsLoaded = false;
 async function loadNews() {
   if(newsLoaded) return;
   const el = document.getElementById('newsList');
